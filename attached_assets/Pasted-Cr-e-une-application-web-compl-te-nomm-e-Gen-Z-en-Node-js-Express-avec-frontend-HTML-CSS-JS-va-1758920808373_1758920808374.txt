@@ -1,0 +1,92 @@
+Crée une application web complète nommée **Gen Z** en Node.js + Express avec frontend HTML/CSS/JS vanilla.
+
+🎨 Interface :
+- Thème sombre (dark mode).
+- Logo One Piece affiché en haut.
+- Nom du site : "Gen Z".
+- Page d’accueil (`/`) avec logo, titre et boutons "Créer un compte" / "Connexion".
+
+👤 Authentification :
+- Inscription (`/register`) :
+  - Champs : Nom, Numéro (obligatoire), Mot de passe.
+  - Vérifier doublon numéro (erreur 409 si existe déjà).
+  - Mot de passe haché avec bcrypt.
+  - Après inscription réussie → connecté automatiquement.
+- Connexion (`/login`) :
+  - Champs : Numéro + Mot de passe.
+  - Vérifier avec bcrypt.
+- Sessions persistantes avec express-session.
+- Déconnexion (`/api/logout`).
+
+👤 Profil utilisateur :
+- Page `/profile` (connecté uniquement).
+- L’utilisateur peut uploader son **CIN**.
+- Champ `hasCIN = true` si upload validé.
+- Si `hasCIN = true` → ses alertes SOS sont validées automatiquement.
+
+🚨 Fonctionnalité SOS :
+- Dans `/dashboard` :
+  - Formulaire SOS → Raison, “C’est qui ?”, Localisation, Photo/vidéo optionnelle.
+  - Si utilisateur `hasCIN = true` → alerte `confirmed`.
+  - Sinon → alerte `pending` et soumise à validation communautaire.
+- Validation communautaire :
+  - 3 confirmations = confirmed.
+  - 3 refus = fake.
+- Liste des alertes visibles dans dashboard.
+
+🗺️ Map d’insécurité :
+- Page `/map` :
+  - Carte interactive (Leaflet.js ou Google Maps simple).
+  - Marqueurs selon statut (rouge = pending, vert = confirmed, gris = fake).
+  - Détails de l’alerte au clic.
+
+⚙️ Interface Admin :
+- Accessible uniquement si utilisateur `isAdmin = true`.
+- Page `/admin` avec plusieurs sections :
+  1. **Dashboard utilisateurs** :
+     - Nombre total d’utilisateurs
+     - Nombre avec CIN validé
+     - Utilisateurs suspendus
+  2. **Gestion utilisateurs** :
+     - Liste avec : Nom, Numéro, hasCIN, statut (actif/suspendu).
+     - Actions : Modifier infos, Suspendre/Activer, Supprimer.
+  3. **Gestion alertes** :
+     - Liste des alertes : id, auteur, raison, statut.
+     - Actions : Forcer statut (confirmed/fake), Supprimer.
+  4. **Statistiques globales** :
+     - Total alertes
+     - Confirmées
+     - Fausses
+     - En attente
+
+⚡ Backend API :
+- `POST /api/register` → inscription
+- `POST /api/login` → connexion
+- `GET /api/me` → utilisateur connecté
+- `POST /api/logout` → déconnexion
+- `POST /api/profile/cin` → upload CIN
+- `POST /api/alert` → créer alerte SOS
+- `GET /api/alerts` → lister toutes alertes
+- `POST /api/validate` → confirmer/infirmer
+- `GET /api/map` → renvoyer JSON des alertes avec coordonnées
+- `GET /api/admin/users` → liste utilisateurs (admin only)
+- `POST /api/admin/user/update` → modifier utilisateur
+- `POST /api/admin/user/suspend` → suspendre/réactiver utilisateur
+- `DELETE /api/admin/user/:id` → supprimer utilisateur
+- `GET /api/admin/stats` → stats globales (admin only)
+- `POST /api/admin/alert/status` → changer statut alerte
+- `DELETE /api/admin/alert/:id` → supprimer alerte
+
+📂 Organisation des pages :
+- `/` → Accueil sombre
+- `/register` → Inscription
+- `/login` → Connexion
+- `/dashboard` → SOS + liste alertes
+- `/profile` → Upload CIN
+- `/map` → Carte d’insécurité
+- `/admin` → Console d’administration
+
+Bonus :
+- Dark mode CSS moderne.
+- Messages d’erreurs clairs (ex: "Ce numéro est déjà utilisé").
+- Dans la console admin → boutons colorés pour les actions (Suspendre rouge, Activer vert).
