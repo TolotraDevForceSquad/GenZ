@@ -4,10 +4,6 @@ import { z } from "zod";
 import { pgTable, text, integer, boolean, timestamp, decimal, varchar, jsonb, inet, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 
-
-
-
-
 // Modifiez le schéma utilisateur pour inclure le mot de passe
 export const users = pgTable("users", {
   id: varchar("id").primaryKey(),
@@ -37,8 +33,11 @@ export const alerts = pgTable("alerts", {
   reason: text("reason").notNull(),
   description: text("description").notNull(),
   location: text("location").notNull(),
-  latitude: decimal("latitude", { precision: 10, scale: 8 }),
-  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  // latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  // longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  latitude: decimal("latitude"),
+  longitude: decimal("longitude"),
+  
   status: text("status").notNull().default("pending"),
   urgency: text("urgency").notNull().default("medium"),
   authorId: varchar("author_id", { length: 50 }).notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -70,6 +69,22 @@ export const alertValidations = pgTable("alert_validations", {
   index("alert_validations_alert_id_idx").on(table.alertId),
   index("alert_validations_user_id_idx").on(table.userId),
   index("alert_validations_is_valid_idx").on(table.isValid),
+]);
+
+// === TABLE DES COMMENTAIRES SUR LES ALERTES ===
+
+export const alertComments = pgTable("alert_comments", {
+  id: varchar("id", { length: 50 }).primaryKey().default(sql`gen_random_uuid()`),
+  alertId: varchar("alert_id", { length: 50 }).notNull().references(() => alerts.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 50 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 50 }).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  index("alert_comments_alert_id_idx").on(table.alertId),
+  index("alert_comments_user_id_idx").on(table.userId),
+  index("alert_comments_created_at_idx").on(table.createdAt),
 ]);
 
 // === TABLE DES SESSIONS ===
@@ -150,8 +165,8 @@ export const insertAlertSchema = createInsertSchema(alerts, {
   createdAt: true,
   updatedAt: true,
 }).extend({
-  latitude: z.string().optional(),
-  longitude: z.string().optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
   authorId: z.string().min(1, "L'auteur est requis"),
 });
 
@@ -167,6 +182,12 @@ export const validateAlertSchema = z.object({
 export const insertAlertValidationSchema = createInsertSchema(alertValidations).omit({
   id: true,
   validatedAt: true,
+});
+
+export const insertAlertCommentSchema = createInsertSchema(alertComments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const activityLogSchema = z.object({
@@ -188,6 +209,8 @@ export type InsertAlert = z.infer<typeof insertAlertSchema>;
 export type Alert = typeof alerts.$inferSelect;
 export type AlertValidation = typeof alertValidations.$inferSelect;
 export type InsertAlertValidation = z.infer<typeof insertAlertValidationSchema>;
+export type AlertComment = typeof alertComments.$inferSelect;
+export type InsertAlertComment = z.infer<typeof insertAlertCommentSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertActivityLog = typeof activityLogs.$inferInsert;
 export type Session = typeof sessions.$inferSelect;

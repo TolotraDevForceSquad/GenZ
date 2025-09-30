@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, AlertTriangle, Shield, Clock, MessageCircle, ThumbsUp, MapPin, Eye, X, Send, Play, User, CircleCheckBig } from "lucide-react";
+import { Plus, AlertTriangle, Shield, Clock, MessageCircle, ThumbsUp, MapPin, Eye, X, Send, Play, User } from "lucide-react";
 import SOSForm from "./SOSForm";
 import type { Alert } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,7 +17,7 @@ import { useLocation } from "wouter"; // Ajouté pour redirection
 
 // Liste des quartiers prédéfinis d'Antananarivo
 const PREDEFINED_LOCATIONS = [
-  "Analakely", "Andravoahangy", "Anosy", "Antaninarenina", "Antsahavola",
+  "Analakely", "Andravoahangy", "Anosy", "Antaninarenina", "Antsahavola", 
   "Behoririka", "Ankadifotsy", "Ankadindramamy", "Ankadivato", "Amboditsiry",
   "Ampasampito", "Ambatobe", "Ambohidratrimo", "Ambohimanarina", "Ambohimangakely",
   "Ambohijatovo", "Ambatonakanga", "Isoraka", "Mahamasina", "Faravohitra",
@@ -30,16 +30,16 @@ const PREDEFINED_LOCATIONS = [
 // ✅ CORRECTION: Fonction pour formater le timestamp de manière fiable
 const formatTimeAgo = (timestamp: string | Date): string => {
   if (!timestamp) return "Date inconnue";
-
+  
   try {
     const date = new Date(timestamp);
     if (isNaN(date.getTime())) {
       return "Date invalide";
     }
-
+    
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
+    
     if (diffInSeconds < 60) {
       return "À l'instant";
     } else if (diffInSeconds < 3600) {
@@ -140,7 +140,7 @@ function CommentSection({ alertId, currentUserId, isOpen, onClose }: CommentSect
   const createCommentMutation = useMutation({
     mutationFn: async ({ type, content }: { type: string; content: string }) => {
       if (!currentUserId) throw new Error("Vous devez être connecté pour commenter");
-      const response = await apiRequest('POST', `/api/alerts/${alertId}/comments`, {
+      const response = await apiRequest('POST', `/api/alerts/${alertId}/comments`, { 
         type,
         content,
         userId: currentUserId
@@ -262,7 +262,7 @@ interface FacebookStyleAlertProps {
 
 function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUserId }: FacebookStyleAlertProps) {
   const [showFullText, setShowFullText] = useState(false);
-  const [expandedMedia, setExpandedMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
+  const [expandedMedia, setExpandedMedia] = useState<{url: string, type: 'image' | 'video'} | null>(null);
   const [showCommentSection, setShowCommentSection] = useState(false);
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const maxTextLength = 150;
@@ -270,7 +270,7 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
   // ✅ CORRECTION: Gestion sécurisée des médias
   const parseMediaData = (mediaData: any) => {
     if (!mediaData) return [];
-
+    
     if (typeof mediaData === "object") {
       if (Array.isArray(mediaData)) return mediaData;
       return [mediaData];
@@ -286,7 +286,7 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
   // Fonction pour obtenir l'URL du média
   const getMediaUrl = (mediaItem: any): string => {
     if (!mediaItem) return "";
-
+    
     if (mediaItem.url) {
       return mediaItem.url.startsWith("http") ? mediaItem.url : `http://localhost:5005${mediaItem.url}`;
     }
@@ -338,8 +338,8 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
   const authorHasCIN = author.hasCIN || false;
 
   // ✅ CORRECTION: Comptages sécurisés
-  const confirmedCount = typeof alert.confirmedCount === 'string'
-    ? parseInt(alert.confirmedCount) || 0
+  const confirmedCount = typeof alert.confirmedCount === 'string' 
+    ? parseInt(alert.confirmedCount) || 0 
     : alert.confirmedCount || 0;
 
   const rejectedCount = typeof alert.rejectedCount === 'string'
@@ -368,7 +368,7 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
   };
 
   const shouldTruncate = alert.description && alert.description.length > maxTextLength;
-  const displayText = showFullText ? alert.description :
+  const displayText = showFullText ? alert.description : 
     (alert.description ? alert.description.substring(0, maxTextLength) : '');
 
   const mediaItems = getMediaItems();
@@ -398,7 +398,7 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
       window.alert("Vous avez déjà voté pour cette alerte !");
       return;
     }
-
+    
     switch (validation) {
       case 'confirm':
         onConfirm(alert.id);
@@ -440,15 +440,15 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
                 </div>
               </div>
             </div>
-
+            
             <div className="flex items-center space-x-2">
               <Badge className={`text-xs ${getUrgencyColor(alert.urgency)} px-3 py-1 border-0 font-medium`}>
                 {alert.urgency === 'high' ? 'Urgent' : alert.urgency === 'medium' ? 'Moyen' : 'Faible'}
               </Badge>
               <Badge className={`text-xs ${getStatusColor(alert.status)} px-3 py-1 border-0 font-medium`}>
-                {alert.status === 'pending' ? 'En attente' :
-                  alert.status === 'confirmed' ? 'Confirmée' :
-                    alert.status === 'fake' ? 'Fausse' : 'Résolue'}
+                {alert.status === 'pending' ? 'En attente' : 
+                 alert.status === 'confirmed' ? 'Confirmée' : 
+                 alert.status === 'fake' ? 'Fausse' : 'Résolue'}
               </Badge>
             </div>
           </div>
@@ -487,12 +487,13 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
         {hasMedia ? (
           <div className="px-4 pb-3">
             <div
-              className={`grid gap-2 ${mediaItems.length === 1
+              className={`grid gap-2 ${
+                mediaItems.length === 1
                   ? "grid-cols-1"
                   : mediaItems.length === 2
-                    ? "grid-cols-2"
-                    : "grid-cols-3"
-                }`}
+                  ? "grid-cols-2"
+                  : "grid-cols-3"
+              }`}
             >
               {mediaItems.slice(0, 4).map((mediaItem: any, index: number) => {
                 const mediaType = getMediaType(mediaItem);
@@ -501,8 +502,8 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
                 const mediaUrl = getMediaUrl(mediaItem);
 
                 return (
-                  <div
-                    key={index}
+                  <div 
+                    key={index} 
                     className="relative group cursor-pointer"
                     onClick={() => handleMediaClick(mediaItem, mediaType)}
                   >
@@ -531,7 +532,7 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
                           <source src={mediaUrl} type="video/mp4" />
                           Votre navigateur ne supporte pas la lecture de vidéos.
                         </video>
-                        <div
+                        <div 
                           className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center cursor-pointer"
                           onClick={(e) => handlePlayVideo(mediaItem, e)}
                         >
@@ -598,20 +599,10 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
                 <span>{rejectedCount} rejet{rejectedCount !== 1 ? 's' : ''}</span>
               </span>
             </div>
-            {/* <span className="flex items-center space-x-1">
+            <span className="flex items-center space-x-1">
               <Eye className="h-4 w-4" />
               <span>{viewsCount} vue{viewsCount !== 1 ? 's' : ''}</span>
-            </span> */}
-            {isAuthor && alert.status !== 'resolved' && (
-              <button
-                onClick={() => handleValidate('resolved')}
-                className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors shadow-md"
-              >
-                <CircleCheckBig className="h-4 w-4" />
-                <span>Résolu</span>
-              </button>
-            )}
-
+            </span>
           </div>
         </div>
 
@@ -635,7 +626,7 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
                   <ThumbsUp className="h-4 w-4 mr-2" />
                   Confirmer
                 </Button>
-
+                
                 <Button
                   variant="ghost"
                   size="sm"
@@ -645,7 +636,7 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
                   <AlertTriangle className="h-4 w-4 mr-2" />
                   Rejeter
                 </Button>
-
+                
                 {isAuthor && (
                   <Button
                     variant="ghost"
@@ -671,9 +662,9 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
                 Féliciter
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
+            <Button 
+              variant="ghost" 
+              size="sm" 
               className="text-sm h-8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-all"
               onClick={() => setShowCommentSection(true)}
             >
@@ -690,14 +681,14 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
           <DialogContent className="max-w-4xl bg-transparent border-0 shadow-none">
             <div className="relative">
               {expandedMedia.type === 'image' ? (
-                <img
-                  src={expandedMedia.url}
+                <img 
+                  src={expandedMedia.url} 
                   alt="Image agrandie"
                   className="w-full h-auto max-h-[80vh] object-contain rounded-xl shadow-2xl"
                 />
               ) : (
-                <video
-                  controls
+                <video 
+                  controls 
                   autoPlay
                   className="w-full h-auto max-h-[80vh] object-contain rounded-xl shadow-2xl"
                 >
@@ -723,8 +714,8 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
         <Dialog open={!!playingVideo} onOpenChange={() => setPlayingVideo(null)}>
           <DialogContent className="max-w-4xl bg-transparent border-0 shadow-none">
             <div className="relative">
-              <video
-                controls
+              <video 
+                controls 
                 autoPlay
                 className="w-full h-auto max-h-[80vh] object-contain rounded-xl shadow-2xl"
               >
@@ -745,7 +736,7 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
       )}
 
       {/* Section commentaires */}
-      <CommentSection
+      <CommentSection 
         alertId={alert.id}
         currentUserId={currentUserId || ''}
         isOpen={showCommentSection}
@@ -797,9 +788,9 @@ export default function Dashboard() {
       const response = await apiRequest('GET', '/api/alerts?page=1&limit=10');
       if (!response.ok) throw new Error('Erreur de chargement des alertes');
       const data = await response.json();
-
+      
       console.log('📊 API ALERTS RESPONSE:', data);
-
+      
       return data;
     },
     staleTime: 1000 * 60,
@@ -815,12 +806,12 @@ export default function Dashboard() {
         method: 'POST',
         body: formData,
       });
-
+      
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Erreur lors de la création de l'alerte: ${errorText}`);
       }
-
+      
       return response.json();
     },
     onSuccess: () => {
@@ -835,7 +826,7 @@ export default function Dashboard() {
 
   // ✅ CORRECTION: Mutation pour update status (Résolu) - Méthode PUT + authorId
   const updateAlertMutation = useMutation({
-    mutationFn: ({ alertId, status, authorId }: { alertId: string; status: string; authorId: string }) =>
+    mutationFn: ({ alertId, status, authorId }: { alertId: string; status: string; authorId: string }) => 
       apiRequest('PUT', `/api/alerts/${alertId}/status`, { status, authorId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
@@ -851,8 +842,8 @@ export default function Dashboard() {
   const validateAlertMutation = useMutation({
     mutationFn: ({ alertId, isConfirmed, userId }: { alertId: string; isConfirmed: boolean; userId: string }) => {
       console.log(`🔄 Validation alerte ${alertId}: isConfirmed=${isConfirmed}, userId=${userId}`);
-      return apiRequest('POST', `/api/alerts/${alertId}/validate`, {
-        isConfirmed,
+      return apiRequest('POST', `/api/alerts/${alertId}/validate`, { 
+        isConfirmed, 
         userId
       });
     },
@@ -872,7 +863,7 @@ export default function Dashboard() {
 
   // ✅ CORRECTION: Mutation pour création commentaire
   const createCommentMutation = useMutation({
-    mutationFn: ({ alertId, type, content }: { alertId: string; type: string; content: string }) =>
+    mutationFn: ({ alertId, type, content }: { alertId: string; type: string; content: string }) => 
       apiRequest('POST', `/api/alerts/${alertId}/comments`, { type, content, userId: currentUserId! }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
@@ -887,13 +878,13 @@ export default function Dashboard() {
   // ✅ CORRECTION: Déplacé avant le return conditionnel
   const loadMoreAlerts = async () => {
     if (loadingMore || !hasMore) return;
-
+    
     setLoadingMore(true);
     try {
       const nextPage = page + 1;
       const response = await apiRequest('GET', `/api/alerts?page=${nextPage}&limit=10`);
       const newAlerts = await response.json();
-
+      
       if (newAlerts.length < 10) {
         setHasMore(false);
       } else {
@@ -938,7 +929,7 @@ export default function Dashboard() {
     }
 
     const targetAlert = alerts.find((a: Alert) => a.id === alertId);
-
+    
     if (targetAlert?.validatedBy?.includes(currentUserId)) {
       window.alert("Vous avez déjà voté pour cette alerte !");
       return;
@@ -1006,13 +997,13 @@ export default function Dashboard() {
     }
 
     const formData = new FormData();
-
+    
     formData.append('reason', alertData.reason || "Autre");
     formData.append('description', alertData.description || "Pas de description");
     formData.append('location', alertData.location || "Lieu non précisé");
     formData.append('urgency', alertData.urgency || "medium");
     formData.append('authorId', currentUserId);
-
+    
     if (alertData.media) {
       formData.append('media', alertData.media);
     }
@@ -1051,7 +1042,7 @@ export default function Dashboard() {
               <User className="h-5 w-5" />
               <span>{currentUser?.name || 'Utilisateur'}</span>
             </div>
-            <Button
+            <Button 
               onClick={() => setShowSOSForm(true)}
               className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-lg transition-all duration-300"
               size="lg"
@@ -1095,11 +1086,11 @@ export default function Dashboard() {
                     <AlertTriangle className="h-12 w-12 text-gray-500 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-300">Aucune alerte trouvée</h3>
                     <p className="text-gray-500 mt-2">
-                      {activeTab === 'all'
-                        ? "Aucune alerte n'a été signalée pour le moment."
-                        : `Aucune alerte ${activeTab === 'pending' ? 'en attente' :
-                          activeTab === 'confirmed' ? 'confirmée' :
-                            activeTab === 'fake' ? 'fausse' : 'résolue'} pour le moment.`}
+                      {activeTab === 'all' 
+                        ? "Aucune alerte n'a été signalée pour le moment." 
+                        : `Aucune alerte ${activeTab === 'pending' ? 'en attente' : 
+                           activeTab === 'confirmed' ? 'confirmée' : 
+                           activeTab === 'fake' ? 'fausse' : 'résolue'} pour le moment.`}
                     </p>
                   </CardContent>
                 </Card>

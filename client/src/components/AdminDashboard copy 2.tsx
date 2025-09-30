@@ -35,17 +35,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "@/hooks/use-toast";
 
 interface AdminDashboardProps {
   onUserAction?: (userId: string, action: string) => void;
@@ -60,231 +49,35 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
   const [users, setUsers] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalConfig, setModalConfig] = useState({
-    type: '' as 'userEdit' | 'userSuspend' | 'userActivate' | 'userDelete' | 'alertConfirm' | 'alertFake' | 'alertDelete',
-    item: null as any,
-    title: '',
-    message: '',
-  });
-  const [editUserForm, setEditUserForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    neighborhood: '',
-    hasCIN: false,
-    isAdmin: false,
-    password: '',
-  });
 
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const usersRes = await fetch('/api/admin/users');
+        if (usersRes.ok) {
+          const usersData = await usersRes.json();
+          setUsers(usersData.map((u: any) => ({ ...u, status: 'active' })));
+        }
+
+        const alertsRes = await fetch('/api/alerts?limit=1000');
+        if (alertsRes.ok) {
+          const alertsData = await alertsRes.json();
+          setAlerts(alertsData);
+        }
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchData();
   }, []);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const usersRes = await fetch('/api/admin/users');
-      if (usersRes.ok) {
-        const usersData = await usersRes.json();
-        setUsers(usersData.map((u: any) => ({ ...u, status: 'active' })));
-      }
-
-      const alertsRes = await fetch('/api/alerts?limit=1000');
-      if (alertsRes.ok) {
-        const alertsData = await alertsRes.json();
-        setAlerts(alertsData);
-      }
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les données",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUserAction = async (action: string, item: any) => {
-    try {
-      const url = `/api/admin/users/${item.id}`;
-      let response;
-      switch (action) {
-        case 'edit':
-          // Handled in modal
-          return;
-        case 'suspend':
-          response = await fetch(url, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'suspended' }),
-          });
-          break;
-        case 'activate':
-          response = await fetch(url, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'active' }),
-          });
-          break;
-        case 'delete':
-          response = await fetch(url, { method: 'DELETE' });
-          break;
-        default:
-          return;
-      }
-      if (response.ok) {
-        toast({
-          title: "Succès",
-          description: `Utilisateur ${action} avec succès`,
-        });
-        fetchData();
-      } else {
-        throw new Error('Échec de l\'action');
-      }
-    } catch (err) {
-      console.error('Error performing user action:', err);
-      toast({
-        title: "Erreur",
-        description: `Impossible de ${action} l'utilisateur`,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAlertAction = async (action: string, item: any) => {
-    try {
-      const url = `/api/alerts/${item.id}/status`;
-      let response;
-      const adminId = 'usr_admin_001'; // Hardcoded admin ID
-      switch (action) {
-        case 'confirm':
-          response = await fetch(url, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'confirmed', authorId: adminId }),
-          });
-          break;
-        case 'fake':
-          response = await fetch(url, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'fake', authorId: adminId }),
-          });
-          break;
-        case 'delete':
-          response = await fetch(`/api/alerts/${item.id}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ authorId: adminId }),
-          });
-          break;
-        default:
-          return;
-      }
-      if (response.ok) {
-        toast({
-          title: "Succès",
-          description: `Alerte ${action} avec succès`,
-        });
-        fetchData();
-      } else {
-        throw new Error('Échec de l\'action');
-      }
-    } catch (err) {
-      console.error('Error performing alert action:', err);
-      toast({
-        title: "Erreur",
-        description: `Impossible de ${action} l'alerte`,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const openModal = (type: typeof modalConfig.type, item: any, title: string, message?: string) => {
-    setModalConfig({ type, item, title, message: message || '' });
-    if (type === 'userEdit') {
-      setEditUserForm({
-        firstName: item.firstName || '',
-        lastName: item.lastName || '',
-        email: item.email || '',
-        phone: item.phone || '',
-        neighborhood: item.neighborhood || '',
-        hasCIN: item.hasCIN || false,
-        isAdmin: item.isAdmin || false,
-        password: '',
-      });
-    }
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setModalConfig({ type: '', item: null, title: '', message: '' });
-    setEditUserForm({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      neighborhood: '',
-      hasCIN: false,
-      isAdmin: false,
-      password: '',
-    });
-  };
-
-  const handleEditUserSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const formData = { ...editUserForm };
-      if (!formData.password) {
-        delete formData.password;
-      }
-      const response = await fetch(`/api/admin/users/${modalConfig.item.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      if (response.ok) {
-        toast({
-          title: "Succès",
-          description: "Utilisateur mis à jour",
-        });
-        closeModal();
-        fetchData();
-      } else {
-        throw new Error('Échec de la mise à jour');
-      }
-    } catch (err) {
-      console.error('Error updating user:', err);
-      toast({
-        title: "Erreur",
-        description: "Impossible de mettre à jour l'utilisateur",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleConfirmation = () => {
-    if (!modalConfig.item) return;
-    const { type, item } = modalConfig;
-    if (type.startsWith('user')) {
-      const action = type === 'userSuspend' ? 'suspend' : type === 'userActivate' ? 'activate' : 'delete';
-      handleUserAction(action, item);
-    } else {
-      const action = type === 'alertConfirm' ? 'confirm' : type === 'alertFake' ? 'fake' : 'delete';
-      handleAlertAction(action, item);
-    }
-    closeModal();
-  };
 
   const stats = useMemo(() => {
     const totalUsers = users.length;
     const verifiedUsers = users.filter((u: any) => u.hasCIN).length;
-    const suspendedUsers = users.filter((u: any) => u.status === 'suspended').length;
+    const suspendedUsers = 0;
     const totalAlerts = alerts.length;
     const pendingAlerts = alerts.filter((a: any) => a.status === 'pending').length;
     const confirmedAlerts = alerts.filter((a: any) => a.status === 'confirmed').length;
@@ -520,25 +313,13 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem 
-                                  onClick={() => {
-                                    onUserAction?.(user.id, 'edit');
-                                    openModal('userEdit', user, 'Modifier utilisateur');
-                                  }}
+                                  onClick={() => onUserAction?.(user.id, 'edit')}
                                 >
                                   <UserCheck className="mr-2 h-4 w-4" />
                                   Modifier
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
-                                  onClick={() => {
-                                    onUserAction?.(user.id, user.status === 'suspended' ? 'activate' : 'suspend');
-                                    const actionType = user.status === 'suspended' ? 'userActivate' : 'userSuspend';
-                                    openModal(
-                                      actionType,
-                                      user,
-                                      user.status === 'suspended' ? 'Réactiver utilisateur' : 'Suspendre utilisateur',
-                                      `Voulez-vous ${user.status === 'suspended' ? 'réactiver' : 'suspendre'} l'utilisateur ${user.name}?`
-                                    );
-                                  }}
+                                  onClick={() => onUserAction?.(user.id, user.status === 'suspended' ? 'activate' : 'suspend')}
                                 >
                                   {user.status === 'suspended' ? (
                                     <>
@@ -554,15 +335,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
-                                  onClick={() => {
-                                    onUserAction?.(user.id, 'delete');
-                                    openModal(
-                                      'userDelete',
-                                      user,
-                                      'Supprimer utilisateur',
-                                      `Voulez-vous supprimer définitivement l'utilisateur ${user.name}?`
-                                    );
-                                  }}
+                                  onClick={() => onUserAction?.(user.id, 'delete')}
                                   className="text-destructive"
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
@@ -660,44 +433,20 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem 
-                                  onClick={() => {
-                                    onAlertAction?.(alert.id, 'confirm');
-                                    openModal(
-                                      'alertConfirm',
-                                      alert,
-                                      'Forcer confirmation',
-                                      `Voulez-vous confirmer manuellement l'alerte "${alert.reason}"?`
-                                    );
-                                  }}
+                                  onClick={() => onAlertAction?.(alert.id, 'confirm')}
                                 >
                                   <CheckCircle className="mr-2 h-4 w-4" />
                                   Forcer confirmation
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
-                                  onClick={() => {
-                                    onAlertAction?.(alert.id, 'fake');
-                                    openModal(
-                                      'alertFake',
-                                      alert,
-                                      'Marquer fausse',
-                                      `Voulez-vous marquer l'alerte "${alert.reason}" comme fausse?`
-                                    );
-                                  }}
+                                  onClick={() => onAlertAction?.(alert.id, 'fake')}
                                 >
                                   <XCircle className="mr-2 h-4 w-4" />
                                   Marquer fausse
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
-                                  onClick={() => {
-                                    onAlertAction?.(alert.id, 'delete');
-                                    openModal(
-                                      'alertDelete',
-                                      alert,
-                                      'Supprimer alerte',
-                                      `Voulez-vous supprimer l'alerte "${alert.reason}"?`
-                                    );
-                                  }}
+                                  onClick={() => onAlertAction?.(alert.id, 'delete')}
                                   className="text-destructive"
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
@@ -716,110 +465,6 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{modalConfig.title}</DialogTitle>
-            {modalConfig.type === 'userEdit' ? null : (
-              <DialogDescription>{modalConfig.message}</DialogDescription>
-            )}
-          </DialogHeader>
-          {modalConfig.type === 'userEdit' ? (
-            <form onSubmit={handleEditUserSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">Prénom</Label>
-                <Input
-                  id="firstName"
-                  value={editUserForm.firstName}
-                  onChange={(e) => setEditUserForm({ ...editUserForm, firstName: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Nom</Label>
-                <Input
-                  id="lastName"
-                  value={editUserForm.lastName}
-                  onChange={(e) => setEditUserForm({ ...editUserForm, lastName: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={editUserForm.email}
-                  onChange={(e) => setEditUserForm({ ...editUserForm, email: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Téléphone</Label>
-                <Input
-                  id="phone"
-                  value={editUserForm.phone}
-                  onChange={(e) => setEditUserForm({ ...editUserForm, phone: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="neighborhood">Quartier</Label>
-                <Input
-                  id="neighborhood"
-                  value={editUserForm.neighborhood}
-                  onChange={(e) => setEditUserForm({ ...editUserForm, neighborhood: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="hasCIN"
-                    checked={editUserForm.hasCIN}
-                    onCheckedChange={(checked) => setEditUserForm({ ...editUserForm, hasCIN: !!checked })}
-                  />
-                  <Label htmlFor="hasCIN">A CIN</Label>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="isAdmin"
-                    checked={editUserForm.isAdmin}
-                    onCheckedChange={(checked) => setEditUserForm({ ...editUserForm, isAdmin: !!checked })}
-                  />
-                  <Label htmlFor="isAdmin">Admin</Label>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Nouveau mot de passe (optionnel)</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={editUserForm.password}
-                  onChange={(e) => setEditUserForm({ ...editUserForm, password: e.target.value })}
-                  placeholder="Laisser vide pour ne pas changer"
-                />
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={closeModal}>
-                  Annuler
-                </Button>
-                <Button type="submit">Enregistrer</Button>
-              </DialogFooter>
-            </form>
-          ) : (
-            <div className="py-4">
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={closeModal}>
-                  Annuler
-                </Button>
-                <Button type="button" variant={modalConfig.type.includes('Delete') ? "destructive" : "default"} onClick={handleConfirmation}>
-                  Confirmer
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

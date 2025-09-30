@@ -1,4 +1,4 @@
-// routes.ts - Updated to handle latitude and longitude
+// routes.ts - Updated login endpoint to include token
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -22,7 +22,7 @@ const storageConfig = multer.diskStorage({
   }
 });
 
-const upload = multer({
+const upload = multer({ 
   storage: storageConfig,
   limits: {
     fileSize: 10 * 1024 * 1024
@@ -45,9 +45,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = parseInt(req.query.limit as string) || 10;
       const status = req.query.status as string;
       const authorId = req.query.authorId as string;
-
+      
       const alerts = await storage.getAlerts({ limit, status, authorId });
-
+      
       const alertsWithAuthor = await Promise.all(
         alerts.map(async (alert: any) => {
           try {
@@ -80,7 +80,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         })
       );
-
+      
       res.json(alertsWithAuthor);
     } catch (error) {
       console.error('Error fetching alerts:', error);
@@ -90,8 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/alerts", upload.single("media"), async (req, res) => {
     try {
-      // ✅ CORRECTION: Ajout de latitude et longitude dans l'extraction des champs
-      const { reason, description, location, urgency, authorId, latitude, longitude } = req.body;
+      const { reason, description, location, urgency, authorId } = req.body;
       const media = req.file ? [`/uploads/${req.file.filename}`] : [];
 
       const defaultAuthorId = "usr_admin_001";
@@ -102,9 +101,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: description || "Pas de description",
         location: location || "Lieu non précisé",
         urgency: urgency || "medium",
-        // ✅ CORRECTION: Inclusion de latitude et longitude
-        latitude: latitude,
-        longitude: longitude,
         media,
         authorId: effectiveAuthorId
       };
@@ -112,7 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("🚨 DEBUG ALERT INSERT:", data);
 
       const alert = await storage.createAlert(data);
-
+      
       const author = await storage.getUser(effectiveAuthorId);
       const alertWithAuthor = {
         ...alert,
@@ -150,21 +146,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await storage.validateAlert(id, isConfirmed, userId);
-
+      
       if (!result) {
         return res.status(404).json({ error: "Alert not found" });
       }
 
-      
-
       res.json(result);
     } catch (error: any) {
       console.error("Error validating alert:", error);
-
+      
       if (error.message === "User has already voted") {
         return res.status(409).json({ error: "User has already voted on this alert" });
       }
-
+      
       res.status(500).json({ error: "Failed to validate alert" });
     }
   });
@@ -179,7 +173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await storage.updateAlertStatus(id, status, authorId);
-
+      
       if (!result) {
         return res.status(404).json({ error: "Alert not found or unauthorized" });
       }
@@ -201,7 +195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const success = await storage.deleteAlert(id, authorId);
-
+      
       if (!success) {
         return res.status(404).json({ error: "Alert not found or unauthorized" });
       }
@@ -218,7 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const comments = await storage.getAlertComments(id);
-
+      
       const commentsWithUser = await Promise.all(
         comments.map(async (comment: any) => {
           try {
@@ -237,7 +231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         })
       );
-
+      
       res.json(commentsWithUser);
     } catch (error) {
       console.error('Error fetching comments:', error);
@@ -266,7 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const comment = await storage.createAlertComment(data);
-
+      
       const user = await storage.getUser(userId);
       const commentWithUser = {
         ...comment,
@@ -290,8 +284,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { phone, password } = req.body;
 
       if (!phone || !password) {
-        return res.status(400).json({
-          error: "Téléphone et mot de passe requis"
+        return res.status(400).json({ 
+          error: "Téléphone et mot de passe requis" 
         });
       }
 
@@ -299,10 +293,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Utiliser le téléphone comme identité
       const user = await storage.validateUserCredentials(phone, password);
-
+      
       if (!user) {
         console.log(`❌ Échec authentification pour: ${phone}`);
-        return res.status(401).json({
+        return res.status(401).json({ 
           error: "Identifiants incorrects"
         });
       }
@@ -333,7 +327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("❌ Erreur lors de la connexion:", error);
-      res.status(500).json({
+      res.status(500).json({ 
         error: "Erreur interne du serveur"
       });
     }
@@ -346,7 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userIdFromAuth = req.headers.authorization?.split(' ')[1] || "6970bcb1-e53f-4abe-acfd-909b7f283e38"; // Exemple avec Bearer token ou fallback
 
       const user = await storage.getUser(userIdFromAuth);
-
+      
       if (!user) {
         return res.status(401).json({ error: "Utilisateur non authentifié" });
       }
@@ -379,22 +373,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { firstName, lastName, email, phone, password, neighborhood } = req.body;
 
       if (!email && !phone) {
-        return res.status(400).json({
-          error: "Email ou téléphone requis"
+        return res.status(400).json({ 
+          error: "Email ou téléphone requis" 
         });
       }
 
       if (!password) {
-        return res.status(400).json({
-          error: "Mot de passe requis"
+        return res.status(400).json({ 
+          error: "Mot de passe requis" 
         });
       }
 
       if (email) {
         const existingUser = await storage.getUserByEmail(email);
         if (existingUser) {
-          return res.status(409).json({
-            error: "Un utilisateur avec cet email existe déjà"
+          return res.status(409).json({ 
+            error: "Un utilisateur avec cet email existe déjà" 
           });
         }
       }
@@ -402,8 +396,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (phone) {
         const existingUser = await storage.getUserByPhone(phone);
         if (existingUser) {
-          return res.status(409).json({
-            error: "Un utilisateur avec ce téléphone existe déjà"
+          return res.status(409).json({ 
+            error: "Un utilisateur avec ce téléphone existe déjà" 
           });
         }
       }
@@ -440,7 +434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({ user: userResponse });
     } catch (error) {
       console.error("Error registering user:", error);
-      res.status(500).json({
+      res.status(500).json({ 
         error: "Failed to register user",
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
@@ -452,7 +446,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const user = await storage.getUser(id);
-
+      
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -486,7 +480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = req.body;
 
       const user = await storage.updateUser(id, updates);
-
+      
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -540,7 +534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/users", async (req, res) => {
     try {
       const users = await storage.getAllUsers();
-
+      
       const usersResponse = users.map(user => ({
         id: user.id,
         name: user.name,
@@ -571,7 +565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = req.body;
 
       const user = await storage.updateUserAdmin(id, updates);
-
+      
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }

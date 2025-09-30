@@ -1,4 +1,3 @@
-// AuthPage - Updated to store token in localStorage after login
 import AuthForm from "@/components/AuthForm";
 import { useLocation } from "wouter";
 import { useState } from "react";
@@ -12,6 +11,51 @@ export default function AuthPage({ mode, onLogin }: AuthPageProps) {
   const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // const handleSubmit = async (data: any) => {
+  //   setLoading(true);
+  //   setError(null);
+  //   console.log('Auth submitted:', data);
+
+  //   try {
+  //     // Appel API réel pour l'authentification
+  //     const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
+  //     const response = await fetch(endpoint, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify(data),
+  //     });
+
+  //     const result = await response.json();
+
+  //     if (!response.ok) {
+  //       throw new Error(result.error || 'Erreur d\'authentification');
+  //     }
+
+  //     if (result.success) {
+  //       // Stocker l'utilisateur dans le state/localStorage si nécessaire
+  //       if (onLogin) {
+  //         onLogin(result.user);
+  //       }
+
+  //       // Rediriger vers la page indiquée par le serveur
+  //       if (result.redirectTo) {
+  //         console.log('Redirection vers:', result.redirectTo);
+  //         setLocation(result.redirectTo);
+  //       } else {
+  //         // Fallback vers le dashboard
+  //         setLocation('/dashboard');
+  //       }
+  //     }
+  //   } catch (error: any) {
+  //     console.error('Auth error:', error);
+  //     setError(error.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleSubmit = async (data: any) => {
     setLoading(true);
@@ -41,12 +85,6 @@ export default function AuthPage({ mode, onLogin }: AuthPageProps) {
 
         // Mode login
         if (onLogin) onLogin(result.user);
-
-        // ✅ CORRECTION: Stocker le token après connexion réussie
-        if (result.token) {
-          localStorage.setItem('authToken', result.token);
-        }
-
         setLocation(result.redirectTo || '/dashboard');
       }
     } catch (error: any) {
@@ -66,4 +104,5 @@ export default function AuthPage({ mode, onLogin }: AuthPageProps) {
       error={error}
     />
   );
+  
 }

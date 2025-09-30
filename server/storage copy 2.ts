@@ -14,7 +14,7 @@ export interface IStorage {
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   validateUserCredentials(identity: string, password: string): Promise<User | undefined>;
-
+  
   // Alert methods
   getAlerts(options?: { limit?: number; status?: string; authorId?: string }): Promise<Alert[]>;
   getAlertsByAuthor(authorId: string): Promise<Alert[]>;
@@ -23,15 +23,15 @@ export interface IStorage {
   updateAlertStatus(id: string, status: string, authorId: string): Promise<Alert | undefined>;
   validateAlert(id: string, isConfirmed: boolean, userId: string): Promise<Alert | undefined>;
   deleteAlert(id: string, authorId: string): Promise<boolean>;
-
+  
   // Comment methods
   getAlertComments(alertId: string): Promise<AlertComment[]>;
   createAlertComment(comment: InsertAlertComment): Promise<AlertComment>;
-
+  
   // Stats methods
   getUserStats(userId: string): Promise<{ alertsCount: number; validationsCount: number }>;
   getSystemStats(): Promise<{ usersCount: number; alertsCount: number; confirmedAlertsCount: number }>;
-
+  
   // Admin methods
   getAllUsers(): Promise<User[]>;
   updateUserAdmin(id: string, updates: Partial<User>): Promise<User | undefined>;
@@ -146,75 +146,65 @@ export class PostgreSQLStorage implements IStorage {
   async validateUserCredentials(identity: string, password: string): Promise<User | undefined> {
     try {
       const user = await this.getUserByIdentity(identity);
-      if (!user || !user.password) {
-        return undefined;
-      }
+      if (!user || !user.password) return undefined;
 
+      // Vérification du mot de passe hashé
       const isValid = this.verifyPassword(password, user.password);
-      if (!isValid) {
-        return undefined;
-      }
-
-      // Mettre à jour le cache
-      this.setCachedUser(`id:${user.id}`, user);
-      return user;
+      return isValid ? user : undefined;
     } catch (error) {
       console.error('Error validating user credentials:', error);
       return undefined;
     }
   }
 
-  async createUser(user: InsertUser): Promise<User> {
+  async createUser(insertUser: InsertUser): Promise<User> {
     try {
-      const id = randomUUID();
-      const hashedPassword = user.password ? this.hashPassword(user.password) : null;
-      const name = this.generateUserName(user);
       const now = new Date();
+      
+      // Hashage du mot de passe
+      const hashedPassword = insertUser.password 
+        ? this.hashPassword(insertUser.password)
+        : this.hashPassword('123456'); // Mot de passe par défaut
 
-      const [newUser] = await db.insert(users).values({
-        id,
-        name,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        phone: user.phone,
-        password: hashedPassword,
-        neighborhood: user.neighborhood || 'Non spécifié',
-        avatar: user.avatar,
-        profileImageUrl: user.profileImageUrl,
-        hasCIN: false,
-        isAdmin: false,
-        alertsCount: 0,
-        validationsCount: 0,
+      const newUser = {
+        id: randomUUID(),
+        name: this.generateUserName(insertUser),
+        ...insertUser,
+        password: hashedPassword, // ✅ Mot de passe hashé
         joinedAt: now,
         createdAt: now,
         updatedAt: now,
-      }).returning();
+        alertsCount: 0,
+        validationsCount: 0,
+      };
 
-      this.invalidateUserCache(id);
-      return newUser;
+      const [user] = await db.insert(users).values(newUser).returning();
+      
+      this.invalidateUserCache(user.id);
+      return user;
     } catch (error) {
       console.error('Error creating user:', error);
-      throw error;
+      throw new Error(`Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
     try {
-      // Si on met à jour le mot de passe, le hasher
+      // Hashage du mot de passe si fourni
       if (updates.password) {
         updates.password = this.hashPassword(updates.password);
       }
 
-      const [updatedUser] = await db
-        .update(users)
-        .set({ ...updates, updatedAt: new Date() })
+      const [updatedUser] = await db.update(users)
+        .set({ 
+          ...updates, 
+          updatedAt: new Date() 
+        })
         .where(eq(users.id, id))
         .returning();
 
       if (updatedUser) {
         this.invalidateUserCache(id);
-        this.setCachedUser(`id:${id}`, updatedUser);
       }
 
       return updatedUser;
@@ -224,14 +214,16 @@ export class PostgreSQLStorage implements IStorage {
     }
   }
 
-  async upsertUser(user: UpsertUser): Promise<User> {
+  async upsertUser(upsertUser: UpsertUser): Promise<User> {
     try {
-      const existingUser = await this.getUser(user.id);
-      if (existingUser) {
-        return await this.updateUser(user.id, user);
-      } else {
-        return await this.createUser(user as InsertUser);
+      if (upsertUser.id) {
+        const existing = await this.getUser(upsertUser.id);
+        if (existing) {
+          return await this.updateUser(upsertUser.id, upsertUser) || existing;
+        }
       }
+
+      return await this.createUser(upsertUser as InsertUser);
     } catch (error) {
       console.error('Error upserting user:', error);
       throw error;
@@ -240,17 +232,26 @@ export class PostgreSQLStorage implements IStorage {
 
   async getAlerts(options?: { limit?: number; status?: string; authorId?: string }): Promise<Alert[]> {
     try {
-      const { limit = 10, status, authorId } = options || {};
-      let query = db.select().from(alerts).orderBy(desc(alerts.createdAt)).limit(limit);
-
-      if (status) {
-        query = query.where(eq(alerts.status, status));
+      let query = db.select().from(alerts);
+      
+      const conditions = [];
+      if (options?.status) {
+        conditions.push(eq(alerts.status, options.status));
       }
-
-      if (authorId) {
-        query = query.where(eq(alerts.authorId, authorId));
+      if (options?.authorId) {
+        conditions.push(eq(alerts.authorId, options.authorId));
       }
-
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+      
+      query = query.orderBy(desc(alerts.createdAt));
+      
+      if (options?.limit) {
+        query = query.limit(options.limit);
+      }
+      
       return await query;
     } catch (error) {
       console.error('Error getting alerts:', error);
@@ -260,7 +261,10 @@ export class PostgreSQLStorage implements IStorage {
 
   async getAlertsByAuthor(authorId: string): Promise<Alert[]> {
     try {
-      return await db.select().from(alerts).where(eq(alerts.authorId, authorId)).orderBy(desc(alerts.createdAt));
+      return await db.select()
+        .from(alerts)
+        .where(eq(alerts.authorId, authorId))
+        .orderBy(desc(alerts.createdAt));
     } catch (error) {
       console.error('Error getting alerts by author:', error);
       return [];
@@ -279,44 +283,29 @@ export class PostgreSQLStorage implements IStorage {
 
   async createAlert(insertAlert: InsertAlert): Promise<Alert> {
     try {
-      const id = randomUUID();
-      const now = new Date();
-
-      // ✅ CORRECTION: Parser latitude et longitude si ils sont fournis comme strings
-      const latitude = insertAlert.latitude ? parseFloat(insertAlert.latitude) : undefined;
-      const longitude = insertAlert.longitude ? parseFloat(insertAlert.longitude) : undefined;
-
-      // Valider que les coordonnées sont valides si fournies
-      if (latitude !== undefined && (isNaN(latitude) || latitude < -90 || latitude > 90)) {
-        console.warn('Invalid latitude provided:', insertAlert.latitude);
-      }
-      if (longitude !== undefined && (isNaN(longitude) || longitude < -180 || longitude > 180)) {
-        console.warn('Invalid longitude provided:', insertAlert.longitude);
-      }
-
-      const [newAlert] = await db.insert(alerts).values({
-        id,
+      const alertData = {
+        id: randomUUID(),
         reason: insertAlert.reason,
         description: insertAlert.description,
         location: insertAlert.location,
-        latitude: latitude, // Utiliser la valeur parsée
-        longitude: longitude, // Utiliser la valeur parsée
+        latitude: insertAlert.latitude ? sql`${insertAlert.latitude}::numeric` : undefined,
+        longitude: insertAlert.longitude ? sql`${insertAlert.longitude}::numeric` : undefined,
         urgency: insertAlert.urgency || 'medium',
         authorId: insertAlert.authorId,
         media: insertAlert.media || [],
         status: 'pending',
         confirmedCount: 0,
         rejectedCount: 0,
-        createdAt: now,
-        updatedAt: now,
-      }).returning();
-
-      // Incrémenter le compteur d'alertes de l'utilisateur
-      if (insertAlert.authorId) {
-        await this.incrementUserAlertsCount(insertAlert.authorId);
+        createdAt: new Date(),
+      };
+      
+      const [alert] = await db.insert(alerts).values(alertData).returning();
+      
+      if (alert.authorId) {
+        await this.incrementUserAlertsCount(alert.authorId);
       }
-
-      return newAlert;
+      
+      return alert;
     } catch (error) {
       console.error('Error creating alert:', error);
       throw error;
@@ -325,24 +314,24 @@ export class PostgreSQLStorage implements IStorage {
 
   async updateAlertStatus(id: string, status: string, authorId: string): Promise<Alert | undefined> {
     try {
-      const alert = await this.getAlert(id);
-      if (!alert) return undefined;
-
-      if (status === 'resolved' && alert.authorId !== authorId) {
-        return undefined;
+      if (status === 'resolved') {
+        const alert = await this.getAlert(id);
+        if (!alert || alert.authorId !== authorId) {
+          return undefined;
+        }
       }
 
-      const [updatedAlert] = await db
-        .update(alerts)
-        .set({
-          status,
-          ...(status === 'resolved' ? { resolvedAt: new Date() } : {}),
-          updatedAt: new Date()
-        })
+      const updates: any = { status };
+      if (status === 'resolved') {
+        updates.resolvedAt = new Date();
+      }
+
+      const [updatedAlert] = await db.update(alerts)
+        .set(updates)
         .where(eq(alerts.id, id))
         .returning();
-
-      return updatedAlert[0];
+      
+      return updatedAlert;
     } catch (error) {
       console.error('Error updating alert status:', error);
       return undefined;
@@ -351,76 +340,57 @@ export class PostgreSQLStorage implements IStorage {
 
   async validateAlert(id: string, isConfirmed: boolean, userId: string): Promise<Alert | undefined> {
     try {
-      // Vérifier si l'utilisateur a déjà voté
+      const alert = await this.getAlert(id);
+      if (!alert) return undefined;
+
       const existingValidation = await db.select()
         .from(alertValidations)
-        .where(and(eq(alertValidations.alertId, id), eq(alertValidations.userId, userId)))
+        .where(and(
+          eq(alertValidations.alertId, id),
+          eq(alertValidations.userId, userId)
+        ))
         .limit(1);
 
       if (existingValidation.length > 0) {
         throw new Error("User has already voted");
       }
 
-      // Créer la validation
-      const validationId = randomUUID();
       await db.insert(alertValidations).values({
-        id: validationId,
+        id: randomUUID(),
         alertId: id,
-        userId,
+        userId: userId,
         isValid: isConfirmed,
-        validatedAt: new Date(),
       });
 
-      // Mettre à jour les compteurs et le status de l'alerte
-      const validations = await db.select({ isValid: alertValidations.isValid })
+      const validations = await db.select()
         .from(alertValidations)
         .where(eq(alertValidations.alertId, id));
 
-      const confirmedCount = validations.filter(v => v.isValid).length;
-      const rejectedCount = validations.length - confirmedCount;
+      const newConfirmed = validations.filter(v => v.isValid).length;
+      const newRejected = validations.filter(v => !v.isValid).length;
 
-      let newStatus = 'pending';
-      if (confirmedCount >= 3) {
-        newStatus = 'confirmed';
-      } else if (rejectedCount >= 2) {
-        newStatus = 'fake';
+      const updates: any = {
+        confirmedCount: newConfirmed,
+        rejectedCount: newRejected,
+      };
+
+      if (newConfirmed >= 3) {
+        updates.status = 'confirmed';
+      } else if (newRejected >= 2) {
+        updates.status = 'fake';
       }
 
-      const [updatedAlert] = await db
-        .update(alerts)
-        .set({
-          confirmedCount,
-          rejectedCount,
-          status: newStatus,
-          updatedAt: new Date()
-        })
+      const [updatedAlert] = await db.update(alerts)
+        .set(updates)
         .where(eq(alerts.id, id))
         .returning();
 
-      // Incrémenter le compteur de validations de l'utilisateur
       await this.incrementUserValidationsCount(userId);
-
-      return updatedAlert[0];
-    } catch (error: any) {
+      
+      return updatedAlert;
+    } catch (error) {
       console.error('Error validating alert:', error);
       throw error;
-    }
-  }
-
-  async deleteAlert(id: string, authorId: string): Promise<boolean> {
-    try {
-      const alert = await this.getAlert(id);
-      if (!alert) return false;
-
-      if (alert.authorId !== authorId && authorId !== 'usr_admin_001') {
-        return false;
-      }
-
-      await db.delete(alerts).where(eq(alerts.id, id));
-      return true;
-    } catch (error) {
-      console.error('Error deleting alert:', error);
-      return false;
     }
   }
 
@@ -437,20 +407,28 @@ export class PostgreSQLStorage implements IStorage {
 
   async createAlertComment(insertComment: InsertAlertComment): Promise<AlertComment> {
     try {
-      const id = randomUUID();
-      const now = new Date();
-
-      const [newComment] = await db.insert(alertComments).values({
-        id,
+      const [comment] = await db.insert(alertComments).values({
         ...insertComment,
-        createdAt: now,
-        updatedAt: now,
       }).returning();
-
-      return newComment;
+      return comment;
     } catch (error) {
       console.error('Error creating alert comment:', error);
       throw error;
+    }
+  }
+
+  async deleteAlert(id: string, authorId: string): Promise<boolean> {
+    try {
+      const alert = await this.getAlert(id);
+      if (!alert || alert.authorId !== authorId) {
+        return false;
+      }
+
+      await db.delete(alerts).where(eq(alerts.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting alert:', error);
+      return false;
     }
   }
 
@@ -473,13 +451,15 @@ export class PostgreSQLStorage implements IStorage {
 
   async getSystemStats(): Promise<{ usersCount: number; alertsCount: number; confirmedAlertsCount: number }> {
     try {
-      const [{ usersCount }] = await db.select({ usersCount: count() }).from(users);
-      const [{ alertsCount }] = await db.select({ alertsCount: count() }).from(alerts);
-      const [{ confirmedAlertsCount }] = await db.select({ confirmedAlertsCount: count() })
-        .from(alerts)
-        .where(eq(alerts.status, 'confirmed'));
+      const usersResult = await db.select({ count: count() }).from(users);
+      const alertsResult = await db.select({ count: count() }).from(alerts);
+      const confirmedAlertsResult = await db.select({ count: count() }).from(alerts).where(eq(alerts.status, 'confirmed'));
 
-      return { usersCount, alertsCount, confirmedAlertsCount };
+      return {
+        usersCount: usersResult[0]?.count || 0,
+        alertsCount: alertsResult[0]?.count || 0,
+        confirmedAlertsCount: confirmedAlertsResult[0]?.count || 0
+      };
     } catch (error) {
       console.error('Error getting system stats:', error);
       return { usersCount: 0, alertsCount: 0, confirmedAlertsCount: 0 };
@@ -496,7 +476,28 @@ export class PostgreSQLStorage implements IStorage {
   }
 
   async updateUserAdmin(id: string, updates: Partial<User>): Promise<User | undefined> {
-    return await this.updateUser(id, updates);
+    try {
+      if (updates.password) {
+        updates.password = this.hashPassword(updates.password);
+      }
+
+      const [updatedUser] = await db.update(users)
+        .set({ 
+          ...updates, 
+          updatedAt: new Date() 
+        })
+        .where(eq(users.id, id))
+        .returning();
+
+      if (updatedUser) {
+        this.invalidateUserCache(id);
+      }
+
+      return updatedUser;
+    } catch (error) {
+      console.error('Error updating user as admin:', error);
+      return undefined;
+    }
   }
 
   private generateUserName(userData: InsertUser | UpsertUser): string {
@@ -518,7 +519,10 @@ export class PostgreSQLStorage implements IStorage {
   private async incrementUserAlertsCount(userId: string): Promise<void> {
     try {
       await db.update(users)
-        .set(sql`alerts_count = alerts_count + 1, updated_at = ${new Date()}`)
+        .set({ 
+          alertsCount: sql`${users.alertsCount} + 1`,
+          updatedAt: new Date()
+        })
         .where(eq(users.id, userId));
     } catch (error) {
       console.error('Error incrementing user alerts count:', error);
@@ -528,7 +532,10 @@ export class PostgreSQLStorage implements IStorage {
   private async incrementUserValidationsCount(userId: string): Promise<void> {
     try {
       await db.update(users)
-        .set(sql`validations_count = validations_count + 1, updated_at = ${new Date()}`)
+        .set({ 
+          validationsCount: sql`${users.validationsCount} + 1`,
+          updatedAt: new Date()
+        })
         .where(eq(users.id, userId));
     } catch (error) {
       console.error('Error incrementing user validations count:', error);
@@ -536,122 +543,263 @@ export class PostgreSQLStorage implements IStorage {
   }
 }
 
-class MemStorage implements IStorage {
-  private users = new Map<string, User>();
-  private alerts = new Map<string, Alert>();
-  private alertValidations = new Map<string, AlertValidation>();
-  private comments = new Map<string, AlertComment>();
+export class MemStorage implements IStorage {
+  private users: Map<string, User>;
+  private alerts: Map<string, Alert>;
+  private alertValidations: Map<string, AlertValidation>;
+  private comments: Map<string, AlertComment>;
+
+  constructor() {
+    this.users = new Map();
+    this.alerts = new Map();
+    this.alertValidations = new Map();
+    this.comments = new Map();
+    this.initializeDefaultData();
+  }
+
+  private initializeDefaultData() {
+    const hashedPassword = this.hashPassword('123456');
+
+    const defaultUsers: User[] = [
+      {
+        id: 'usr_naina_001',
+        name: 'Naina Razafy',
+        email: 'naina.razafy@gmail.com',
+        firstName: 'Naina',
+        lastName: 'Razafy',
+        profileImageUrl: 'https://images.unsplash.com/photo-1494790108755-2616b169db2c?w=96&h=96&fit=crop&crop=face',
+        phone: '+261321234567',
+        password: hashedPassword, // ✅ Mot de passe hashé
+        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b169db2c?w=96&h=96&fit=crop&crop=face',
+        hasCIN: true,
+        isAdmin: false,
+        neighborhood: 'Antananarivo',
+        joinedAt: new Date('2024-01-01'),
+        createdAt: new Date('2024-01-01'),
+        updatedAt: new Date('2024-01-01'),
+        alertsCount: 5,
+        validationsCount: 23,
+      },
+      {
+        id: 'usr_hery_002',
+        name: 'Hery Andriana',
+        email: 'hery@example.com',
+        firstName: 'Hery',
+        lastName: 'Andriana',
+        profileImageUrl: null,
+        phone: '+261331234568',
+        password: hashedPassword, // ✅ Mot de passe hashé
+        avatar: null,
+        hasCIN: true,
+        isAdmin: false,
+        neighborhood: 'Antsirabe',
+        joinedAt: new Date('2024-01-02'),
+        createdAt: new Date('2024-01-02'),
+        updatedAt: new Date('2024-01-02'),
+        alertsCount: 3,
+        validationsCount: 15,
+      },
+      {
+        id: 'usr_admin_001',
+        name: 'Administrateur',
+        email: 'admin@example.com',
+        firstName: 'Admin',
+        lastName: 'System',
+        profileImageUrl: null,
+        phone: '+261341234569',
+        password: hashedPassword, // ✅ Mot de passe hashé
+        avatar: null,
+        hasCIN: true,
+        isAdmin: true,
+        neighborhood: 'Antananarivo',
+        joinedAt: new Date('2024-01-01'),
+        createdAt: new Date('2024-01-01'),
+        updatedAt: new Date('2024-01-01'),
+        alertsCount: 0,
+        validationsCount: 0,
+      }
+    ];
+
+    defaultUsers.forEach(user => this.users.set(user.id, user));
+
+    const defaultAlerts: Alert[] = [
+      {
+        id: 'alert_001',
+        reason: 'Agression',
+        description: 'Tentative d\'agression signalée près du marché',
+        location: 'Analakely, Antananarivo',
+        status: 'pending',
+        urgency: 'high',
+        authorId: 'usr_naina_001',
+        confirmedCount: 2,
+        rejectedCount: 0,
+        media: [],
+        createdAt: new Date(Date.now() - 15 * 60 * 1000),
+      },
+      {
+        id: 'alert_002',
+        reason: 'Vol',
+        description: 'Vol à la tire signalé dans la zone',
+        location: 'Andravoahangy, Antananarivo',
+        status: 'confirmed',
+        urgency: 'medium',
+        authorId: 'usr_hery_002',
+        confirmedCount: 5,
+        rejectedCount: 1,
+        media: [],
+        createdAt: new Date(Date.now() - 60 * 60 * 1000),
+      }
+    ];
+
+    defaultAlerts.forEach(alert => this.alerts.set(alert.id, alert));
+
+    const defaultValidations: AlertValidation[] = [
+      {
+        id: randomUUID(),
+        alertId: 'alert_001',
+        userId: 'usr_hery_002',
+        isValid: true,
+        validatedAt: new Date(Date.now() - 10 * 60 * 1000),
+      },
+      {
+        id: randomUUID(),
+        alertId: 'alert_001',
+        userId: 'usr_admin_001',
+        isValid: true,
+        validatedAt: new Date(Date.now() - 5 * 60 * 1000),
+      },
+      // Add more for alert_002 if needed
+    ];
+
+    defaultValidations.forEach(validation => this.alertValidations.set(validation.id, validation));
+
+    const defaultComments: AlertComment[] = [
+      {
+        id: randomUUID(),
+        alertId: 'alert_001',
+        userId: 'usr_hery_002',
+        type: 'text',
+        content: 'J\'ai vu quelque chose de similaire hier.',
+        createdAt: new Date(Date.now() - 8 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 8 * 60 * 1000),
+      },
+    ];
+
+    defaultComments.forEach(comment => this.comments.set(comment.id, comment));
+  }
+
+  private hashPassword(password: string): string {
+    return createHash('sha256').update(password).digest('hex');
+  }
+
+  private verifyPassword(password: string, hashedPassword: string): boolean {
+    const hashedInput = this.hashPassword(password);
+    return hashedInput === hashedPassword;
+  }
 
   async getUser(id: string): Promise<User | undefined> {
     return this.users.get(id);
   }
 
   async getUserByIdentity(identity: string): Promise<User | undefined> {
-    for (const user of this.users.values()) {
-      if (user.email === identity || user.phone === identity) {
-        return user;
-      }
-    }
-    return undefined;
+    return Array.from(this.users.values()).find(user => 
+      user.email === identity || user.phone === identity
+    );
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    for (const user of this.users.values()) {
-      if (user.email === email) {
-        return user;
-      }
-    }
-    return undefined;
+    return Array.from(this.users.values()).find(user => user.email === email);
   }
 
   async getUserByPhone(phone: string): Promise<User | undefined> {
-    for (const user of this.users.values()) {
-      if (user.phone === phone) {
-        return user;
-      }
-    }
-    return undefined;
+    return Array.from(this.users.values()).find(user => user.phone === phone);
   }
 
   async validateUserCredentials(identity: string, password: string): Promise<User | undefined> {
-    const user = await this.getUserByIdentity(identity);
-    if (!user || !user.password) {
+    try {
+      const user = await this.getUserByIdentity(identity);
+      if (!user || !user.password) return undefined;
+
+      const isValid = this.verifyPassword(password, user.password);
+      return isValid ? user : undefined;
+    } catch (error) {
+      console.error("Error validating user credentials:", error);
       return undefined;
     }
-
-    // Simple password verification (in production, use proper hashing)
-    if (user.password === password) {
-      return user;
-    }
-    return undefined;
   }
 
-  async createUser(user: InsertUser): Promise<User> {
+  async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
     const now = new Date();
-    const name = this.generateUserName(user);
-    const newUser: User = {
+    const hashedPassword = insertUser.password 
+      ? this.hashPassword(insertUser.password)
+      : this.hashPassword('123456');
+
+    const user: User = {
       id,
-      name,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phone: user.phone,
-      password: user.password,
-      neighborhood: user.neighborhood || 'Non spécifié',
-      avatar: '',
-      profileImageUrl: '',
-      hasCIN: false,
-      isAdmin: false,
-      alertsCount: 0,
-      validationsCount: 0,
+      name: this.generateUserName(insertUser),
+      ...insertUser,
+      password: hashedPassword,
       joinedAt: now,
       createdAt: now,
       updatedAt: now,
+      alertsCount: 0,
+      validationsCount: 0,
     };
-
-    this.users.set(id, newUser);
-    return newUser;
+    
+    this.users.set(id, user);
+    return user;
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
+    const existing = this.users.get(id);
+    if (!existing) return undefined;
 
-    const updatedUser = { ...user, ...updates, updatedAt: new Date() };
+    if (updates.password) {
+      updates.password = this.hashPassword(updates.password);
+    }
+
+    const updatedUser: User = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    
     this.users.set(id, updatedUser);
     return updatedUser;
   }
 
-  async upsertUser(user: UpsertUser): Promise<User> {
-    const existingUser = this.users.get(user.id);
-    if (existingUser) {
-      return await this.updateUser(user.id, user);
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    if (userData.id && this.users.has(userData.id)) {
+      return (await this.updateUser(userData.id, userData))!;
     } else {
-      return await this.createUser(user as InsertUser);
+      return await this.createUser(userData as InsertUser);
     }
   }
 
   async getAlerts(options?: { limit?: number; status?: string; authorId?: string }): Promise<Alert[]> {
-    const { limit = 10, status, authorId } = options || {};
-    let filteredAlerts = Array.from(this.alerts.values());
+    let alertsArray = Array.from(this.alerts.values())
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
 
-    if (status) {
-      filteredAlerts = filteredAlerts.filter(alert => alert.status === status);
+    if (options?.status) {
+      alertsArray = alertsArray.filter(alert => alert.status === options.status);
     }
 
-    if (authorId) {
-      filteredAlerts = filteredAlerts.filter(alert => alert.authorId === authorId);
+    if (options?.authorId) {
+      alertsArray = alertsArray.filter(alert => alert.authorId === options.authorId);
     }
 
-    return filteredAlerts.slice(0, limit).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (options?.limit) {
+      alertsArray = alertsArray.slice(0, options.limit);
+    }
+
+    return alertsArray;
   }
 
   async getAlertsByAuthor(authorId: string): Promise<Alert[]> {
-    const filteredAlerts = Array.from(this.alerts.values())
+    return Array.from(this.alerts.values())
       .filter(alert => alert.authorId === authorId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    return filteredAlerts;
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
   }
 
   async getAlert(id: string): Promise<Alert | undefined> {
@@ -661,29 +809,13 @@ class MemStorage implements IStorage {
   async createAlert(insertAlert: InsertAlert): Promise<Alert> {
     const id = randomUUID();
     const now = new Date();
-
-    // ✅ Parse en nombre et valider les bornes si nécessaire
-    const latitude = insertAlert.latitude !== undefined && insertAlert.latitude !== null
-      ? parseFloat(String(insertAlert.latitude))
-      : null; // ou undefined
-    const longitude = insertAlert.longitude !== undefined && insertAlert.longitude !== null
-      ? parseFloat(String(insertAlert.longitude))
-      : null; // ou undefined
-
-    if (latitude !== null && (isNaN(latitude) || latitude < -90 || latitude > 90)) {
-      console.warn('Latitude invalide:', insertAlert.latitude);
-    }
-    if (longitude !== null && (isNaN(longitude) || longitude < -180 || longitude > 180)) {
-      console.warn('Longitude invalide:', insertAlert.longitude);
-    }
-
     const alert: Alert = {
       id,
       reason: insertAlert.reason,
       description: insertAlert.description,
       location: insertAlert.location,
-      latitude,   // ✅ nombre ou null
-      longitude,  // ✅ nombre ou null
+      latitude: insertAlert.latitude ? parseFloat(insertAlert.latitude) : undefined,
+      longitude: insertAlert.longitude ? parseFloat(insertAlert.longitude) : undefined,
       urgency: insertAlert.urgency || 'medium',
       authorId: insertAlert.authorId,
       media: insertAlert.media || [],
@@ -691,18 +823,16 @@ class MemStorage implements IStorage {
       confirmedCount: 0,
       rejectedCount: 0,
       createdAt: now,
-      updatedAt: now,
     };
-
+    
     this.alerts.set(id, alert);
-
+    
     if (alert.authorId) {
       await this.incrementUserAlertsCount(alert.authorId);
     }
-
+    
     return alert;
   }
-
 
   async updateAlertStatus(id: string, status: string, authorId: string): Promise<Alert | undefined> {
     const alert = this.alerts.get(id);
@@ -717,7 +847,7 @@ class MemStorage implements IStorage {
       status,
       ...(status === 'resolved' ? { resolvedAt: new Date() } : {}),
     };
-
+    
     this.alerts.set(id, updatedAlert);
     return updatedAlert;
   }
@@ -726,7 +856,7 @@ class MemStorage implements IStorage {
     const alert = this.alerts.get(id);
     if (!alert) return undefined;
 
-    const existingValidation = Array.from(this.alertValidations.values()).find(v =>
+    const existingValidation = Array.from(this.alertValidations.values()).find(v => 
       v.alertId === id && v.userId === userId
     );
 
@@ -762,7 +892,7 @@ class MemStorage implements IStorage {
 
     this.alerts.set(id, updatedAlert);
     await this.incrementUserValidationsCount(userId);
-
+    
     return updatedAlert;
   }
 
@@ -781,16 +911,14 @@ class MemStorage implements IStorage {
       createdAt: now,
       updatedAt: now,
     };
-
+    
     this.comments.set(id, comment);
     return comment;
   }
 
   async deleteAlert(id: string, authorId: string): Promise<boolean> {
     const alert = this.alerts.get(id);
-    if (!alert) return false;
-
-    if (alert.authorId !== authorId && authorId !== 'usr_admin_001') {
+    if (!alert || alert.authorId !== authorId) {
       return false;
     }
 
@@ -819,7 +947,7 @@ class MemStorage implements IStorage {
   }
 
   async getAllUsers(): Promise<User[]> {
-    return Array.from(this.users.values()).sort((a, b) =>
+    return Array.from(this.users.values()).sort((a, b) => 
       new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
     );
   }

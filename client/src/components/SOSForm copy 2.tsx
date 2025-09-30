@@ -26,8 +26,8 @@ export default function SOSForm({ onSubmit, onClose, loading }: SOSFormProps) {
     reason: '',
     description: '',
     location: '',
-    latitude: 0 as number | null,
-    longitude: 0 as number | null,
+    latitude: '',
+    longitude: '', // ✅ AJOUT: Champs pour lat/lng
     media: null as File | null,
     urgency: 'medium'
   });
@@ -53,8 +53,8 @@ export default function SOSForm({ onSubmit, onClose, loading }: SOSFormProps) {
     setFormData(prev => ({
       ...prev,
       location: location.name,
-      latitude: location.latitude,
-      longitude: location.longitude
+      latitude: location.latitude.toString(),
+      longitude: location.longitude.toString()
     }));
     setLocationQuery(location.name);
     setShowSuggestions(false);
@@ -65,63 +65,15 @@ export default function SOSForm({ onSubmit, onClose, loading }: SOSFormProps) {
     setTimeout(() => setShowSuggestions(false), 200);
   };
 
-  // const handleSubmit = (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   console.log('SOS form submitted:', formData);
-  //   onSubmit?.(formData);
-  // };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Validation coords si location non vide
-    if (formData.location && (!formData.latitude || !formData.longitude)) {
-      alert('Veuillez sélectionner une localisation précise dans les suggestions ou utiliser le GPS.');
-      return;
-    }
-
-    // ✅ Console log détaillé
-    console.log("=== Données SOS prêtes à l'envoi ===");
-    console.log("Type d'incident:", formData.reason);
-    console.log("Description:", formData.description);
-    console.log("Localisation:", formData.location);
-    console.log("Latitude:", formData.latitude);
-    console.log("Longitude:", formData.longitude);
-    console.log("Niveau d'urgence:", formData.urgency);
-    console.log("Média:", formData.media ? formData.media.name : "Aucun fichier");
-    console.log("=== Objet complet ===");
-    console.log(formData);
     console.log('SOS form submitted:', formData);
-
     onSubmit?.(formData);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     setFormData(prev => ({ ...prev, media: file }));
-  };
-
-  // ✅ AJOUT: Géolocalisation GPS (optionnelle)
-  const handleGeolocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setFormData(prev => ({
-            ...prev,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            location: 'Position actuelle (GPS)'
-          }));
-          setLocationQuery('Position actuelle (GPS)');
-        },
-        (error) => {
-          console.error('Erreur GPS:', error);
-          alert('Impossible d\'accéder à la géolocalisation. Vérifiez les permissions.');
-        },
-        { enableHighAccuracy: true }
-      );
-    } else {
-      alert('Géolocalisation non supportée par ce navigateur.');
-    }
   };
 
   return (
@@ -142,8 +94,8 @@ export default function SOSForm({ onSubmit, onClose, loading }: SOSFormProps) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="reason">Type d'incident</Label>
-            <Select
-              value={formData.reason}
+            <Select 
+              value={formData.reason} 
               onValueChange={(value) => setFormData(prev => ({ ...prev, reason: value }))}
             >
               <SelectTrigger data-testid="select-reason">
@@ -185,25 +137,16 @@ export default function SOSForm({ onSubmit, onClose, loading }: SOSFormProps) {
                 value={locationQuery || formData.location}
                 onChange={(e) => {
                   const query = e.target.value;
-                  setLocationQuery(query); // Met à jour la query pour l'affichage
-                  setFormData(prev => ({ ...prev, location: query })); // ✅ FIX: Met à jour location à CHAQUE frappe (sans reset)
-                  handleLocationSearch(query); // Génère suggestions
+                  handleLocationSearch(query);
+                  if (!showSuggestions) {
+                    setFormData(prev => ({ ...prev, location: '' })); // Reset si nouvelle recherche
+                  }
                 }}
                 onFocus={() => locationQuery.length >= 2 && setShowSuggestions(true)}
                 onBlur={handleLocationInputBlur}
                 data-testid="input-location"
                 required
               />
-              {/* Bouton GPS */}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleGeolocation}
-                className="absolute right-2 top-2 h-8 w-8 p-0"
-              >
-                📍
-              </Button>
               {/* ✅ AJOUT: Dropdown des suggestions */}
               {showSuggestions && locationSuggestions.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
@@ -228,19 +171,14 @@ export default function SOSForm({ onSubmit, onClose, loading }: SOSFormProps) {
             {formData.location && !showSuggestions && (
               <p className="text-xs text-muted-foreground mt-1">
                 Localisation sélectionnée: {formData.location}
-                {formData.latitude && formData.longitude && (
-                  <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-1 rounded">
-                    (Coords: {formData.latitude}, {formData.longitude})
-                  </span>
-                )}
               </p>
             )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="urgency">Niveau d'urgence</Label>
-            <Select
-              value={formData.urgency}
+            <Select 
+              value={formData.urgency} 
               onValueChange={(value) => setFormData(prev => ({ ...prev, urgency: value }))}
             >
               <SelectTrigger data-testid="select-urgency">
@@ -277,17 +215,17 @@ export default function SOSForm({ onSubmit, onClose, loading }: SOSFormProps) {
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
+            <Button 
+              type="button" 
+              variant="outline" 
               className="flex-1"
               onClick={onClose}
               data-testid="button-cancel"
             >
               Annuler
             </Button>
-            <Button
-              type="submit"
+            <Button 
+              type="submit" 
               className="flex-1"
               disabled={loading}
               data-testid="button-submit-sos"

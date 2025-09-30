@@ -91,8 +91,11 @@ function AuthenticatedApp() {
   };
 
   const handleLogout = () => {
-    logout();
-    setLocation('/');
+    localStorage.removeItem('authToken'); // Efface le token
+    queryClient.clear(); // Vide TOUT le cache React Query
+    logout(); // Appel au hook pour nettoyer le state auth
+    setLocation('/'); // Redirige vers landing
+    console.log('🔓 Déconnexion réussie');
   };
 
   const navigateToLogin = () => {

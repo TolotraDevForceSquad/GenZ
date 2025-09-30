@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState, useEffect, useMemo } from "react";
+import { useState } from "react";
 import { 
   Users, 
   AlertTriangle, 
@@ -35,17 +35,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "@/hooks/use-toast";
 
 interface AdminDashboardProps {
   onUserAction?: (userId: string, action: string) => void;
@@ -57,271 +46,100 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
   const [searchAlerts, setSearchAlerts] = useState('');
   const [userFilter, setUserFilter] = useState('all');
   const [alertFilter, setAlertFilter] = useState('all');
-  const [users, setUsers] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalConfig, setModalConfig] = useState({
-    type: '' as 'userEdit' | 'userSuspend' | 'userActivate' | 'userDelete' | 'alertConfirm' | 'alertFake' | 'alertDelete',
-    item: null as any,
-    title: '',
-    message: '',
-  });
-  const [editUserForm, setEditUserForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    neighborhood: '',
-    hasCIN: false,
-    isAdmin: false,
-    password: '',
-  });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const usersRes = await fetch('/api/admin/users');
-      if (usersRes.ok) {
-        const usersData = await usersRes.json();
-        setUsers(usersData.map((u: any) => ({ ...u, status: 'active' })));
-      }
-
-      const alertsRes = await fetch('/api/alerts?limit=1000');
-      if (alertsRes.ok) {
-        const alertsData = await alertsRes.json();
-        setAlerts(alertsData);
-      }
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les données",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+  // todo: remove mock functionality
+  const stats = {
+    totalUsers: 1247,
+    verifiedUsers: 342,
+    suspendedUsers: 23,
+    totalAlerts: 1891,
+    pendingAlerts: 156,
+    confirmedAlerts: 1502,
+    fakeAlerts: 233
   };
 
-  const handleUserAction = async (action: string, item: any) => {
-    try {
-      const url = `/api/admin/users/${item.id}`;
-      let response;
-      switch (action) {
-        case 'edit':
-          // Handled in modal
-          return;
-        case 'suspend':
-          response = await fetch(url, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'suspended' }),
-          });
-          break;
-        case 'activate':
-          response = await fetch(url, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'active' }),
-          });
-          break;
-        case 'delete':
-          response = await fetch(url, { method: 'DELETE' });
-          break;
-        default:
-          return;
-      }
-      if (response.ok) {
-        toast({
-          title: "Succès",
-          description: `Utilisateur ${action} avec succès`,
-        });
-        fetchData();
-      } else {
-        throw new Error('Échec de l\'action');
-      }
-    } catch (err) {
-      console.error('Error performing user action:', err);
-      toast({
-        title: "Erreur",
-        description: `Impossible de ${action} l'utilisateur`,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAlertAction = async (action: string, item: any) => {
-    try {
-      const url = `/api/alerts/${item.id}/status`;
-      let response;
-      const adminId = 'usr_admin_001'; // Hardcoded admin ID
-      switch (action) {
-        case 'confirm':
-          response = await fetch(url, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'confirmed', authorId: adminId }),
-          });
-          break;
-        case 'fake':
-          response = await fetch(url, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'fake', authorId: adminId }),
-          });
-          break;
-        case 'delete':
-          response = await fetch(`/api/alerts/${item.id}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ authorId: adminId }),
-          });
-          break;
-        default:
-          return;
-      }
-      if (response.ok) {
-        toast({
-          title: "Succès",
-          description: `Alerte ${action} avec succès`,
-        });
-        fetchData();
-      } else {
-        throw new Error('Échec de l\'action');
-      }
-    } catch (err) {
-      console.error('Error performing alert action:', err);
-      toast({
-        title: "Erreur",
-        description: `Impossible de ${action} l'alerte`,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const openModal = (type: typeof modalConfig.type, item: any, title: string, message?: string) => {
-    setModalConfig({ type, item, title, message: message || '' });
-    if (type === 'userEdit') {
-      setEditUserForm({
-        firstName: item.firstName || '',
-        lastName: item.lastName || '',
-        email: item.email || '',
-        phone: item.phone || '',
-        neighborhood: item.neighborhood || '',
-        hasCIN: item.hasCIN || false,
-        isAdmin: item.isAdmin || false,
-        password: '',
-      });
-    }
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setModalConfig({ type: '', item: null, title: '', message: '' });
-    setEditUserForm({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      neighborhood: '',
+  const mockUsers = [
+    {
+      id: '1',
+      name: 'Marie Dubois',
+      phone: '+33 6 12 34 56 78',
+      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b169db2c?w=32&h=32&fit=crop&crop=face',
+      hasCIN: true,
+      status: 'active',
+      joinedAt: '2024-01-15',
+      alertsCount: 5,
+      validationsCount: 23
+    },
+    {
+      id: '2',
+      name: 'Alex Martin',
+      phone: '+33 6 98 76 54 32',
       hasCIN: false,
-      isAdmin: false,
-      password: '',
-    });
-  };
-
-  const handleEditUserSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const formData = { ...editUserForm };
-      if (!formData.password) {
-        delete formData.password;
-      }
-      const response = await fetch(`/api/admin/users/${modalConfig.item.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      if (response.ok) {
-        toast({
-          title: "Succès",
-          description: "Utilisateur mis à jour",
-        });
-        closeModal();
-        fetchData();
-      } else {
-        throw new Error('Échec de la mise à jour');
-      }
-    } catch (err) {
-      console.error('Error updating user:', err);
-      toast({
-        title: "Erreur",
-        description: "Impossible de mettre à jour l'utilisateur",
-        variant: "destructive",
-      });
+      status: 'active',
+      joinedAt: '2024-02-20',
+      alertsCount: 2,
+      validationsCount: 12
+    },
+    {
+      id: '3',
+      name: 'Sophie Chen',
+      phone: '+33 6 55 44 33 22',
+      hasCIN: false,
+      status: 'suspended',
+      joinedAt: '2024-01-10',
+      alertsCount: 8,
+      validationsCount: 3
     }
-  };
+  ];
 
-  const handleConfirmation = () => {
-    if (!modalConfig.item) return;
-    const { type, item } = modalConfig;
-    if (type.startsWith('user')) {
-      const action = type === 'userSuspend' ? 'suspend' : type === 'userActivate' ? 'activate' : 'delete';
-      handleUserAction(action, item);
-    } else {
-      const action = type === 'alertConfirm' ? 'confirm' : type === 'alertFake' ? 'fake' : 'delete';
-      handleAlertAction(action, item);
+  const mockAlerts = [
+    {
+      id: '1',
+      reason: 'Agression',
+      author: 'Marie Dubois',
+      location: 'Rue Victor Hugo, 75016 Paris',
+      status: 'pending',
+      timestamp: '2024-03-20 14:30',
+      validations: { confirmed: 2, rejected: 0 }
+    },
+    {
+      id: '2',
+      reason: 'Vol',
+      author: 'Alex Martin',
+      location: 'Station Châtelet, 75001 Paris',
+      status: 'confirmed',
+      timestamp: '2024-03-20 13:15',
+      validations: { confirmed: 5, rejected: 1 }
+    },
+    {
+      id: '3',
+      reason: 'Harcèlement',
+      author: 'Sophie Chen',
+      location: 'Boulevard Saint-Germain, 75006 Paris',
+      status: 'fake',
+      timestamp: '2024-03-20 11:45',
+      validations: { confirmed: 1, rejected: 4 }
     }
-    closeModal();
-  };
+  ];
 
-  const stats = useMemo(() => {
-    const totalUsers = users.length;
-    const verifiedUsers = users.filter((u: any) => u.hasCIN).length;
-    const suspendedUsers = users.filter((u: any) => u.status === 'suspended').length;
-    const totalAlerts = alerts.length;
-    const pendingAlerts = alerts.filter((a: any) => a.status === 'pending').length;
-    const confirmedAlerts = alerts.filter((a: any) => a.status === 'confirmed').length;
-    const fakeAlerts = alerts.filter((a: any) => a.status === 'fake').length;
-    return {
-      totalUsers,
-      verifiedUsers,
-      suspendedUsers,
-      totalAlerts,
-      pendingAlerts,
-      confirmedAlerts,
-      fakeAlerts
-    };
-  }, [users, alerts]);
+  const filteredUsers = mockUsers.filter(user => {
+    const matchesSearch = user.name.toLowerCase().includes(searchUsers.toLowerCase()) ||
+                         user.phone.includes(searchUsers);
+    const matchesFilter = userFilter === 'all' || 
+                         (userFilter === 'verified' && user.hasCIN) ||
+                         (userFilter === 'unverified' && !user.hasCIN) ||
+                         (userFilter === 'suspended' && user.status === 'suspended') ||
+                         (userFilter === 'active' && user.status === 'active');
+    return matchesSearch && matchesFilter;
+  });
 
-  const filteredUsers = useMemo(() => 
-    users.filter((user: any) => {
-      const matchesSearch = user.name.toLowerCase().includes(searchUsers.toLowerCase()) ||
-                           user.phone?.includes(searchUsers);
-      const matchesFilter = userFilter === 'all' || 
-                           (userFilter === 'verified' && user.hasCIN) ||
-                           (userFilter === 'unverified' && !user.hasCIN) ||
-                           (userFilter === 'suspended' && user.status === 'suspended') ||
-                           (userFilter === 'active' && user.status === 'active');
-      return matchesSearch && matchesFilter;
-    }), [users, searchUsers, userFilter]
-  );
-
-  const filteredAlerts = useMemo(() => 
-    alerts.filter((alert: any) => {
-      const matchesSearch = alert.reason.toLowerCase().includes(searchAlerts.toLowerCase()) ||
-                           alert.location.toLowerCase().includes(searchAlerts.toLowerCase()) ||
-                           alert.author.name.toLowerCase().includes(searchAlerts.toLowerCase());
-      const matchesFilter = alertFilter === 'all' || alert.status === alertFilter;
-      return matchesSearch && matchesFilter;
-    }), [alerts, searchAlerts, alertFilter]
-  );
+  const filteredAlerts = mockAlerts.filter(alert => {
+    const matchesSearch = alert.reason.toLowerCase().includes(searchAlerts.toLowerCase()) ||
+                         alert.location.toLowerCase().includes(searchAlerts.toLowerCase()) ||
+                         alert.author.toLowerCase().includes(searchAlerts.toLowerCase());
+    const matchesFilter = alertFilter === 'all' || alert.status === alertFilter;
+    return matchesSearch && matchesFilter;
+  });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -346,10 +164,6 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
-
-  if (loading) {
-    return <div className="container mx-auto px-4 py-6">Chargement...</div>;
-  }
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -476,7 +290,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredUsers.map((user: any) => (
+                      {filteredUsers.map((user) => (
                         <TableRow key={user.id}>
                           <TableCell>
                             <div className="flex items-center gap-3">
@@ -492,7 +306,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                                   )}
                                 </div>
                                 <p className="text-sm text-muted-foreground">
-                                  Inscrit le {new Date(user.joinedAt).toLocaleDateString()}
+                                  Inscrit le {user.joinedAt}
                                 </p>
                               </div>
                             </div>
@@ -520,25 +334,13 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem 
-                                  onClick={() => {
-                                    onUserAction?.(user.id, 'edit');
-                                    openModal('userEdit', user, 'Modifier utilisateur');
-                                  }}
+                                  onClick={() => onUserAction?.(user.id, 'edit')}
                                 >
                                   <UserCheck className="mr-2 h-4 w-4" />
                                   Modifier
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
-                                  onClick={() => {
-                                    onUserAction?.(user.id, user.status === 'suspended' ? 'activate' : 'suspend');
-                                    const actionType = user.status === 'suspended' ? 'userActivate' : 'userSuspend';
-                                    openModal(
-                                      actionType,
-                                      user,
-                                      user.status === 'suspended' ? 'Réactiver utilisateur' : 'Suspendre utilisateur',
-                                      `Voulez-vous ${user.status === 'suspended' ? 'réactiver' : 'suspendre'} l'utilisateur ${user.name}?`
-                                    );
-                                  }}
+                                  onClick={() => onUserAction?.(user.id, user.status === 'suspended' ? 'activate' : 'suspend')}
                                 >
                                   {user.status === 'suspended' ? (
                                     <>
@@ -554,15 +356,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
-                                  onClick={() => {
-                                    onUserAction?.(user.id, 'delete');
-                                    openModal(
-                                      'userDelete',
-                                      user,
-                                      'Supprimer utilisateur',
-                                      `Voulez-vous supprimer définitivement l'utilisateur ${user.name}?`
-                                    );
-                                  }}
+                                  onClick={() => onUserAction?.(user.id, 'delete')}
                                   className="text-destructive"
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
@@ -628,16 +422,16 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredAlerts.map((alert: any) => (
+                      {filteredAlerts.map((alert) => (
                         <TableRow key={alert.id}>
                           <TableCell>
                             <div>
                               <p className="font-medium">{alert.reason}</p>
-                              <p className="text-sm text-muted-foreground">{new Date(alert.createdAt).toLocaleString()}</p>
+                              <p className="text-sm text-muted-foreground">{alert.timestamp}</p>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <span className="text-sm">{alert.author.name}</span>
+                            <span className="text-sm">{alert.author}</span>
                           </TableCell>
                           <TableCell>
                             <span className="text-sm">{alert.location}</span>
@@ -647,8 +441,8 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                           </TableCell>
                           <TableCell>
                             <div className="text-sm">
-                              <p className="text-green-400">+{alert.confirmedCount}</p>
-                              <p className="text-red-400">-{alert.rejectedCount}</p>
+                              <p className="text-green-400">+{alert.validations.confirmed}</p>
+                              <p className="text-red-400">-{alert.validations.rejected}</p>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -660,44 +454,20 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem 
-                                  onClick={() => {
-                                    onAlertAction?.(alert.id, 'confirm');
-                                    openModal(
-                                      'alertConfirm',
-                                      alert,
-                                      'Forcer confirmation',
-                                      `Voulez-vous confirmer manuellement l'alerte "${alert.reason}"?`
-                                    );
-                                  }}
+                                  onClick={() => onAlertAction?.(alert.id, 'confirm')}
                                 >
                                   <CheckCircle className="mr-2 h-4 w-4" />
                                   Forcer confirmation
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
-                                  onClick={() => {
-                                    onAlertAction?.(alert.id, 'fake');
-                                    openModal(
-                                      'alertFake',
-                                      alert,
-                                      'Marquer fausse',
-                                      `Voulez-vous marquer l'alerte "${alert.reason}" comme fausse?`
-                                    );
-                                  }}
+                                  onClick={() => onAlertAction?.(alert.id, 'fake')}
                                 >
                                   <XCircle className="mr-2 h-4 w-4" />
                                   Marquer fausse
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
-                                  onClick={() => {
-                                    onAlertAction?.(alert.id, 'delete');
-                                    openModal(
-                                      'alertDelete',
-                                      alert,
-                                      'Supprimer alerte',
-                                      `Voulez-vous supprimer l'alerte "${alert.reason}"?`
-                                    );
-                                  }}
+                                  onClick={() => onAlertAction?.(alert.id, 'delete')}
                                   className="text-destructive"
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
@@ -716,110 +486,6 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{modalConfig.title}</DialogTitle>
-            {modalConfig.type === 'userEdit' ? null : (
-              <DialogDescription>{modalConfig.message}</DialogDescription>
-            )}
-          </DialogHeader>
-          {modalConfig.type === 'userEdit' ? (
-            <form onSubmit={handleEditUserSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">Prénom</Label>
-                <Input
-                  id="firstName"
-                  value={editUserForm.firstName}
-                  onChange={(e) => setEditUserForm({ ...editUserForm, firstName: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Nom</Label>
-                <Input
-                  id="lastName"
-                  value={editUserForm.lastName}
-                  onChange={(e) => setEditUserForm({ ...editUserForm, lastName: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={editUserForm.email}
-                  onChange={(e) => setEditUserForm({ ...editUserForm, email: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Téléphone</Label>
-                <Input
-                  id="phone"
-                  value={editUserForm.phone}
-                  onChange={(e) => setEditUserForm({ ...editUserForm, phone: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="neighborhood">Quartier</Label>
-                <Input
-                  id="neighborhood"
-                  value={editUserForm.neighborhood}
-                  onChange={(e) => setEditUserForm({ ...editUserForm, neighborhood: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="hasCIN"
-                    checked={editUserForm.hasCIN}
-                    onCheckedChange={(checked) => setEditUserForm({ ...editUserForm, hasCIN: !!checked })}
-                  />
-                  <Label htmlFor="hasCIN">A CIN</Label>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="isAdmin"
-                    checked={editUserForm.isAdmin}
-                    onCheckedChange={(checked) => setEditUserForm({ ...editUserForm, isAdmin: !!checked })}
-                  />
-                  <Label htmlFor="isAdmin">Admin</Label>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Nouveau mot de passe (optionnel)</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={editUserForm.password}
-                  onChange={(e) => setEditUserForm({ ...editUserForm, password: e.target.value })}
-                  placeholder="Laisser vide pour ne pas changer"
-                />
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={closeModal}>
-                  Annuler
-                </Button>
-                <Button type="submit">Enregistrer</Button>
-              </DialogFooter>
-            </form>
-          ) : (
-            <div className="py-4">
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={closeModal}>
-                  Annuler
-                </Button>
-                <Button type="button" variant={modalConfig.type.includes('Delete') ? "destructive" : "default"} onClick={handleConfirmation}>
-                  Confirmer
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
