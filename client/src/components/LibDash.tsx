@@ -158,7 +158,7 @@ const VideoModal: React.FC<{ isOpen: boolean; onClose: () => void; url: string; 
 
     return (
         <div className="fixed inset-0 bg-[#161313]/95 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-4xl shadow-xl animate-in fade-in zoom-in duration-300" onClick={handleContentClick}>
+            <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-4xl shadow-2xl animate-in fade-in zoom-in duration-300" onClick={handleContentClick}>
                 <div className="flex justify-between items-center p-4 border-b border-gray-800 sticky top-0 bg-[#201d1d] z-10">
                     <h2 className="text-xl font-bold text-white line-clamp-1">Vidéo: {title}</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-white p-1 transition rounded-full hover:bg-gray-700">
@@ -219,7 +219,7 @@ const CommentsModal: React.FC<{ isOpen: boolean; onClose: () => void; comments: 
 
   return (
     <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-lg shadow-xl animate-in fade-in zoom-in duration-300 my-8 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-300 my-8 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center p-4 border-b border-gray-800 sticky top-0 bg-[#201d1d] z-10">
           <h2 className="text-xl font-bold text-white">Commentaires</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1 transition rounded-full hover:bg-gray-700">
@@ -237,7 +237,7 @@ const CommentsModal: React.FC<{ isOpen: boolean; onClose: () => void; comments: 
                 <img
                   src={comment.user.avatar || comment.user.profileImageUrl || 'http://localhost:5005/uploads/icon-user.png'}
                   alt={comment.user.name}
-                  className="w-9 h-9 rounded-full object-cover flex-shrink-0 border-2 border-red-500/50"
+                  className="w-9 h-9 rounded-full object-cover flex-shrink-0 border-2 border-yellow-500/50"
                 />
                 <div className="flex-grow bg-gray-800 rounded-xl p-3">
                   <div className="flex items-center justify-between mb-1">
@@ -256,16 +256,16 @@ const CommentsModal: React.FC<{ isOpen: boolean; onClose: () => void; comments: 
           <img
             src={currentUser.avatar || currentUser.profileImageUrl || 'http://localhost:5005/uploads/icon-user.png'}
             alt="Avatar"
-            className="w-9 h-9 rounded-full object-cover mr-3 border-2 border-red-500/50"
+            className="w-9 h-9 rounded-full object-cover mr-3 border-2 border-yellow-500/50"
           />
           <input
             type="text"
             placeholder="Ajoutez un commentaire..."
-            className="flex-grow bg-gray-700 text-gray-200 border border-gray-700 rounded-full py-2.5 px-4 focus:ring-1 focus:ring-red-500 focus:outline-none transition placeholder-gray-400"
+            className="flex-grow bg-gray-700 text-gray-200 border border-gray-700 rounded-full py-2.5 px-4 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition placeholder-gray-400"
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
           />
-          <button type="submit" disabled={!newComment.trim()} className="ml-3 text-red-500 hover:text-red-400 transition p-2 disabled:opacity-50">
+          <button type="submit" disabled={!newComment.trim()} className="ml-3 text-yellow-500 hover:text-yellow-400 transition p-2 disabled:opacity-50">
             <Send className="w-5 h-5" />
           </button>
         </form>
@@ -374,14 +374,14 @@ const LibererCard: React.FC<{ post: LibererPost; currentUser: AppUser; onUpdateS
   };
 
   return (
-    <div className="bg-[#201d1d] border border-gray-800 rounded-xl shadow-xl mb-6 lg:mb-0 transition duration-300">
+    <div className="bg-[#201d1d] border border-gray-800 rounded-xl shadow-2xl mb-6 lg:mb-0 transform hover:scale-[1.01] transition duration-300">
       {/* En-tête de la publication */}
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center">
           <img
             src={post.author.avatar || post.author.profileImageUrl || 'http://localhost:5005/uploads/icon-user.png'}
             alt={post.author.name}
-            className="w-11 h-11 rounded-full object-cover mr-3 border-2 border-red-500/50 flex-shrink-0"
+            className="w-11 h-11 rounded-full object-cover mr-3 border-2 border-yellow-500/50 flex-shrink-0"
           />
           <div>
             <div className="flex items-center gap-2">
@@ -398,7 +398,7 @@ const LibererCard: React.FC<{ post: LibererPost; currentUser: AppUser; onUpdateS
             <p className="text-xs text-gray-400">
               <span className="font-semibold text-gray-300">{post.personName}</span>
               {' • '}
-              <span className="text-red-500">{timeAgo(post.createdAt)}</span>
+              <span className="text-yellow-500">{timeAgo(post.createdAt)}</span>
             </p>
           </div>
         </div>
@@ -413,7 +413,7 @@ const LibererCard: React.FC<{ post: LibererPost; currentUser: AppUser; onUpdateS
         />
         {/* Affichage du statut */}
         <span
-          className={`absolute top-4 right-4 px-3 py-1 text-xs font-semibold rounded-full text-white ${statusColor}`}
+          className={`absolute top-4 right-4 px-3 py-1 text-xs font-semibold rounded-full text-white shadow-lg ${statusColor}`}
         >
           {statusText}
         </span>
@@ -463,7 +463,7 @@ const LibererCard: React.FC<{ post: LibererPost; currentUser: AppUser; onUpdateS
           <div className="p-4 pt-0">
               <button
                   onClick={() => setShowVideoModal(true)}
-                  className="flex items-center justify-center w-full p-3 text-sm font-semibold rounded-lg bg-red-700 hover:bg-red-800 text-white transition"
+                  className="flex items-center justify-center w-full p-3 text-sm font-semibold rounded-lg bg-red-700 hover:bg-red-800 text-white transition shadow-md"
               >
                   <Play className="w-4 h-4 mr-2" />
                   Voir la Vidéo d'Arrestation
@@ -483,7 +483,7 @@ const LibererCard: React.FC<{ post: LibererPost; currentUser: AppUser; onUpdateS
         
         {/* Partie Gauche: Commentaires */}
         <div className="flex space-x-6 text-gray-400">
-          <button onClick={handleCommentButtonClick} className="flex items-center space-x-1 hover:text-red-400 transition p-2 -ml-2 rounded-lg hover:bg-gray-700">
+          <button onClick={handleCommentButtonClick} className="flex items-center space-x-1 hover:text-blue-400 transition p-2 -ml-2 rounded-lg hover:bg-gray-700">
             <MessageCircle className="w-6 h-6" />
             <span className="ml-1 text-base">{commentCount}</span>
           </button>
@@ -499,7 +499,7 @@ const LibererCard: React.FC<{ post: LibererPost; currentUser: AppUser; onUpdateS
               disabled={post.status === 'liberer'}
               className={`flex items-center px-2 py-1 sm:px-3 sm:py-2 rounded-lg font-semibold transition whitespace-nowrap ${post.status === 'liberer' 
                   ? 'bg-green-700 text-green-300 opacity-70 cursor-not-allowed' 
-                  : 'bg-green-600 hover:bg-green-700 text-white'
+                  : 'bg-green-600 hover:bg-green-700 text-white shadow-md'
               }`}
             >
               <Check className="w-4 h-4 mr-1 sm:mr-2 flex-shrink-0" />
@@ -514,7 +514,7 @@ const LibererCard: React.FC<{ post: LibererPost; currentUser: AppUser; onUpdateS
                 disabled={post.status === 'en-detention'}
                 className={`flex items-center px-2 py-1 sm:px-3 sm:py-2 rounded-lg font-semibold transition whitespace-nowrap ${post.status === 'en-detention' 
                     ? 'bg-orange-700 text-orange-300 opacity-70 cursor-not-allowed' 
-                    : 'bg-orange-600 hover:bg-orange-700 text-white'
+                    : 'bg-orange-600 hover:bg-orange-700 text-white shadow-md'
                 }`}
             >
                 <Clock className="w-4 h-4 mr-1 sm:mr-2 flex-shrink-0" />
@@ -526,7 +526,7 @@ const LibererCard: React.FC<{ post: LibererPost; currentUser: AppUser; onUpdateS
             {/* <button
               onClick={handleDelete}
               title="Supprimer la publication"
-              className="p-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition flex items-center justify-center flex-shrink-0"
+              className="p-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition shadow-md flex items-center justify-center flex-shrink-0"
             >
               <Trash2 className="w-4 h-4" />
             </button> */}
@@ -643,12 +643,12 @@ const NewPostForm: React.FC<{ onClose: () => void; onSuccess: () => void; curren
     }
   };
 
-  const inputClass = 'w-full bg-gray-800 text-white p-3 rounded-lg border border-gray-700 focus:ring-red-500 focus:border-red-500 placeholder-gray-500 transition';
+  const inputClass = 'w-full bg-gray-800 text-white p-3 rounded-lg border border-gray-700 focus:ring-yellow-500 focus:border-yellow-500 placeholder-gray-500 transition';
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit}> {/* ✅ MODIFIÉ: Suppression de max-h-[70vh] overflow-y-auto no-scrollbar */}
       
-      <h3 className="text-xl font-bold text-white border-b border-gray-800 pb-2">Personne Détenue</h3>
+      <h3 className="text-xl font-bold text-yellow-500 border-b border-gray-800 pb-2">Personne Détenue</h3>
       
       <div className="space-y-4">
         <input name="personName" value={formState.personName} onChange={handleChange} placeholder="Nom complet de la personne (Obligatoire)" className={inputClass} required />
@@ -661,22 +661,22 @@ const NewPostForm: React.FC<{ onClose: () => void; onSuccess: () => void; curren
             {imagePreview && <CheckCircle className="w-4 h-4 text-green-500 ml-2" />}
         </label>
         <div className="flex space-x-2 mb-3">
-          <button type="button" onClick={() => { setUseImageUrl(false); setFormState(prev => ({ ...prev, personImageFile: undefined, personImageUrl: '' })); setImagePreview(null); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${!useImageUrl ? 'bg-red-500 text-gray-900' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+          <button type="button" onClick={() => { setUseImageUrl(false); setFormState(prev => ({ ...prev, personImageFile: undefined, personImageUrl: '' })); setImagePreview(null); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${!useImageUrl ? 'bg-yellow-500 text-gray-900 shadow-md' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
             Fichier local
           </button>
-          <button type="button" onClick={() => { setUseImageUrl(true); setFormState(prev => ({ ...prev, personImageFile: undefined, personImageUrl: '' })); setImagePreview(null); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${useImageUrl ? 'bg-red-500 text-gray-900' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+          <button type="button" onClick={() => { setUseImageUrl(true); setFormState(prev => ({ ...prev, personImageFile: undefined, personImageUrl: '' })); setImagePreview(null); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${useImageUrl ? 'bg-yellow-500 text-gray-900 shadow-md' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
             URL
           </button>
         </div>
         {!useImageUrl ? (
-          <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'image')} className="w-full text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-red-500 hover:file:bg-gray-600" />
+          <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'image')} className="w-full text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-yellow-500 hover:file:bg-gray-600" />
         ) : (
           <input type="url" name="personImageUrl" value={formState.personImageUrl || ''} onChange={handleChange} placeholder="URL de l'image" className={inputClass} />
         )}
-        {imagePreview && <img src={imagePreview} alt="Aperçu" className="mt-4 w-24 h-24 object-cover rounded-lg border border-gray-700" />}
+        {imagePreview && <img src={imagePreview} alt="Aperçu" className="mt-4 w-24 h-24 object-cover rounded-lg border border-gray-700 shadow-md" />}
       </div>
 
-      <h3 className="text-xl font-bold text-white border-b border-gray-800 pb-2 pt-4">Détails de l'Arrestation</h3>
+      <h3 className="text-xl font-bold text-yellow-500 border-b border-gray-800 pb-2 pt-4">Détails de l'Arrestation</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="relative">
             <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -699,25 +699,25 @@ const NewPostForm: React.FC<{ onClose: () => void; onSuccess: () => void; curren
             {(formState.arrestVideoFile || formState.arrestVideoUrl) && <CheckCircle className="w-4 h-4 text-green-500 ml-2" />}
         </label>
         <div className="flex space-x-2 mb-3">
-          <button type="button" onClick={() => { setUseVideoUrl(false); setFormState(prev => ({ ...prev, arrestVideoFile: undefined, arrestVideoUrl: '' })); setVideoPreview(null); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${!useVideoUrl ? 'bg-red-500 text-gray-900' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+          <button type="button" onClick={() => { setUseVideoUrl(false); setFormState(prev => ({ ...prev, arrestVideoFile: undefined, arrestVideoUrl: '' })); setVideoPreview(null); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${!useVideoUrl ? 'bg-yellow-500 text-gray-900 shadow-md' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
             Fichier local
           </button>
-          <button type="button" onClick={() => { setUseVideoUrl(true); setFormState(prev => ({ ...prev, arrestVideoFile: undefined, arrestVideoUrl: '' })); setVideoPreview(null); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${useVideoUrl ? 'bg-red-500 text-gray-900' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+          <button type="button" onClick={() => { setUseVideoUrl(true); setFormState(prev => ({ ...prev, arrestVideoFile: undefined, arrestVideoUrl: '' })); setVideoPreview(null); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${useVideoUrl ? 'bg-yellow-500 text-gray-900 shadow-md' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
             URL
           </button>
         </div>
         {!useVideoUrl ? (
-          <input type="file" accept="video/*" onChange={(e) => handleFileChange(e, 'video')} className="w-full text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-red-500 hover:file:bg-gray-600" />
+          <input type="file" accept="video/*" onChange={(e) => handleFileChange(e, 'video')} className="w-full text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-yellow-500 hover:file:bg-gray-600" />
         ) : (
           <div className="relative">
             <Link className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
             <input type="url" name="arrestVideoUrl" value={formState.arrestVideoUrl || ''} onChange={handleChange} placeholder="Lien vers vidéo (YouTube, etc.)" className={`${inputClass} pl-10`} />
           </div>
         )}
-        {videoPreview && <video src={videoPreview} controls className="mt-4 w-full h-auto max-h-48 object-cover rounded-lg border border-gray-700" />}
+        {videoPreview && <video src={videoPreview} controls className="mt-4 w-full h-auto max-h-48 object-cover rounded-lg border border-gray-700 shadow-md" />}
       </div>
 
-      <button type="submit" disabled={uploading} className="w-full bg-red-500 text-white font-bold py-3 rounded-lg hover:bg-red-600 transition disabled:opacity-50 mt-6">
+      <button type="submit" disabled={uploading} className="w-full bg-yellow-500 text-gray-900 font-bold py-3 rounded-lg hover:bg-yellow-600 transition disabled:opacity-50 mt-6">
         {uploading ? 'Publication en cours...' : 'Publier le Nouveau Cas'}
       </button>
     </form>
@@ -730,7 +730,7 @@ const NewPostModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: 
 
   return (
     <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-lg shadow-xl animate-in fade-in zoom-in duration-300 my-8 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-300 my-8 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center p-4 border-b border-gray-800 sticky top-0 bg-[#201d1d] z-10">
           <h2 className="text-xl font-bold text-white">Nouveau Cas de Détention</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1 transition rounded-full hover:bg-gray-700">
@@ -856,7 +856,7 @@ export const LibDash: React.FC = () => {
 
   if (userLoading || postsLoading) {
     return <div className="min-h-screen bg-[#161313] flex items-center justify-center text-white text-lg">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-500"></div>
+      <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-yellow-500"></div>
     </div>;
   }
 
@@ -868,7 +868,7 @@ export const LibDash: React.FC = () => {
     <div className="min-h-screen bg-[#161313] text-white">
       {/* Header */}
         <div className='flex flex-col items-center mt-6 px-4 sm:px-6 text-center'>
-          <h1 className="text-3xl font-extrabold text-red-400 uppercase tracking-wider">SOS Libération</h1>
+          <h1 className="text-3xl font-extrabold text-yellow-400 tracking-wider">SOS Libération</h1>
           <p className="text-zinc-400 font-mono text-sm">
             Cette section vous permet de signaler rapidement une situation urgente en cas d’arrestation ou de détention. <br/>Notre équipe reçoit immédiatement l’alerte et vous accompagne dans les démarches nécessaires pour obtenir une libération dans les plus brefs délais..
           </p>
@@ -883,7 +883,7 @@ export const LibDash: React.FC = () => {
                 key={key}
                 onClick={() => setSelectedStatus(key)}
                 className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition whitespace-nowrap border ${selectedStatus === key
-                  ? `${color} text-gray-900 border-transparent`
+                  ? `${color} text-gray-900 shadow-lg border-transparent`
                   : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border-gray-700'
                   }`}
               >
@@ -910,13 +910,13 @@ export const LibDash: React.FC = () => {
           <img
             src={currentUser.avatar || currentUser.profileImageUrl || 'http://localhost:5005/uploads/icon-user.png'}
             alt="Profil"
-            className="w-12 h-12 rounded-full object-cover border-2 border-red-500 cursor-pointer transition duration-200"
+            className="w-12 h-12 rounded-full object-cover border-2 border-yellow-500 cursor-pointer hover:shadow-lg transition duration-200"
           />
           <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-3 py-1 bg-gray-700 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap">
             Connecté: {currentUser.name}
           </span>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="bg-red-500 p-4 rounded-full hover:bg-red-600 transition duration-300">
+        <button onClick={() => setIsModalOpen(true)} className="bg-yellow-500 p-4 rounded-full shadow-2xl hover:bg-yellow-600 transition duration-300">
           <Plus className="w-6 h-6 text-gray-900 font-bold" />
         </button>
       </div>

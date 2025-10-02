@@ -96,12 +96,21 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
     setTimeout(() => setSuggestions([]), 200);
   };
 
+  // Styles du thème "High Contrast Gold"
+  const neonGoldShadow = "shadow-[0_0_15px_rgba(251,191,36,0.5)]";
+
   return (
     // Fond noir profond
     <div className="min-h-screen flex items-center justify-center px-4 py-8 lg:py-16 bg-gray-950">
-      {/* Carte: Fond sombre avec bordure/ombre rouge */}
-      <Card className="w-full max-w-xl bg-gray-900 border-gray-800 text-white shadow-2xl">
+      {/* Carte: Fond sombre avec bordure/ombre dorée */}
+      <Card className={`w-full max-w-xl bg-gray-900 border-gray-800 text-white shadow-2xl ${neonGoldShadow} transition duration-300 hover:shadow-[0_0_25px_rgba(251,191,36,0.7)]`}>
         <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            {/* Logo avec glow */}
+            {/* <div className={`p-1 rounded-lg bg-gradient-to-br from-yellow-400/80 to-amber-600/80 ${neonGoldShadow}`}>
+              <img src={genZLogo} alt="Gasy Hub" className="w-16 h-16 rounded-lg border-2 border-gray-950" />
+            </div> */}
+          </div>
           <CardTitle className="text-3xl font-extrabold text-white">
             {mode === 'login' ? 'CONNEXION' : 'CRÉER UN COMPTE'}
           </CardTitle>
@@ -123,14 +132,14 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
                   
                   {/* Nom complet (optionnel) */}
                   <div className="space-y-2">
-                    <Label htmlFor="name" className="text-red-400">Nom complet</Label>
+                    <Label htmlFor="name" className="text-yellow-400">Nom complet</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                       <Input
                         id="name"
                         type="text"
                         placeholder="Votre nom complet"
-                        className="pl-10 bg-gray-800 border-gray-700 text-white focus:border-red-400"
+                        className="pl-10 bg-gray-800 border-gray-700 text-white focus:border-yellow-400"
                         value={formData.name}
                         onChange={(e) => handleChange('name', e.target.value)}
                         data-testid="input-name"
@@ -141,14 +150,14 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
 
                   {/* Email (optionnel) */}
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-red-400">Email</Label>
+                    <Label htmlFor="email" className="text-yellow-400">Email</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                       <Input
                         id="email"
                         type="email"
                         placeholder="votre@email.com"
-                        className="pl-10 bg-gray-800 border-gray-700 text-white focus:border-red-400"
+                        className="pl-10 bg-gray-800 border-gray-700 text-white focus:border-yellow-400"
                         value={formData.email}
                         onChange={(e) => handleChange('email', e.target.value)}
                       />
@@ -160,23 +169,23 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
                 {/* Ligne 2: Prénom et Nom (Grid 2 colonnes sur toutes tailles) */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName" className="text-red-400">Prénom</Label>
+                    <Label htmlFor="firstName" className="text-yellow-400">Prénom</Label>
                     <Input
                       id="firstName"
                       type="text"
                       placeholder="Prénom"
-                      className="bg-gray-800 border-gray-700 text-white focus:border-red-400"
+                      className="bg-gray-800 border-gray-700 text-white focus:border-yellow-400"
                       value={formData.firstName}
                       onChange={(e) => handleChange('firstName', e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="lastName" className="text-red-400">Nom</Label>
+                    <Label htmlFor="lastName" className="text-yellow-400">Nom</Label>
                     <Input
                       id="lastName"
                       type="text"
                       placeholder="Nom"
-                      className="bg-gray-800 border-gray-700 text-white focus:border-red-400"
+                      className="bg-gray-800 border-gray-700 text-white focus:border-yellow-400"
                       value={formData.lastName}
                       onChange={(e) => handleChange('lastName', e.target.value)}
                     />
@@ -185,14 +194,14 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
 
                 {/* Quartier (Full width pour les suggestions) */}
                 <div className="space-y-2 relative">
-                  <Label htmlFor="neighborhood" className="text-red-400">Quartier</Label>
+                  <Label htmlFor="neighborhood" className="text-yellow-400">Quartier</Label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                     <Input
                       id="neighborhood"
                       type="text"
                       placeholder="Votre quartier (recherchez pour suggestions)"
-                      className="pl-10 bg-gray-800 border-gray-700 text-white focus:border-red-400"
+                      className="pl-10 bg-gray-800 border-gray-700 text-white focus:border-yellow-400"
                       value={formData.neighborhood}
                       onChange={(e) => handleNeighborhoodChange(e.target.value)}
                       onBlur={handleNeighborhoodBlur}
@@ -200,15 +209,15 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
                     />
                   </div>
                   {suggestions.length > 0 && formData.neighborhood && (
-                    <ul className="absolute z-50 w-full bg-gray-700 border border-red-400/50 rounded-md shadow-lg mt-1 max-h-60 overflow-auto">
+                    <ul className="absolute z-50 w-full bg-gray-700 border border-yellow-400/50 rounded-md shadow-lg mt-1 max-h-60 overflow-auto">
                       {suggestions.map((location) => (
                         <li
                           key={location.name}
                           onClick={() => selectLocation(location)}
-                          className="p-3 cursor-pointer hover:bg-red-600 hover:text-white text-sm border-b border-gray-600 last:border-b-0"
+                          className="p-3 cursor-pointer hover:bg-yellow-400 hover:text-black text-sm border-b border-gray-600 last:border-b-0"
                         >
-                          <div className="font-medium text-white">{location.name}</div>
-                          <div className="text-xs text-gray-400">{location.district}</div>
+                          <div className="font-medium text-white hover:text-black">{location.name}</div>
+                          <div className="text-xs text-gray-400 hover:text-black">{location.district}</div>
                         </li>
                       ))}
                     </ul>
@@ -222,7 +231,7 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
             
             {/* Téléphone (requis) */}
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-red-400">
+              <Label htmlFor="phone" className="text-yellow-400">
                 Numéro de téléphone <span className="text-red-500">*</span>
               </Label>
               <div className="relative">
@@ -231,7 +240,7 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
                   id="phone"
                   type="tel"
                   placeholder="+261 32 12 34 567"
-                  className="pl-10 bg-gray-800 border-gray-700 text-white focus:border-red-400"
+                  className="pl-10 bg-gray-800 border-gray-700 text-white focus:border-yellow-400"
                   value={formData.phone}
                   onChange={(e) => handleChange('phone', e.target.value)}
                   data-testid="input-phone"
@@ -242,7 +251,7 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
 
             {/* Mot de passe (requis) */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-red-400">
+              <Label htmlFor="password" className="text-yellow-400">
                 Mot de passe <span className="text-red-500">*</span>
               </Label>
               <div className="relative">
@@ -251,7 +260,7 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
-                  className="pl-10 pr-10 bg-gray-800 border-gray-700 text-white focus:border-red-400"
+                  className="pl-10 pr-10 bg-gray-800 border-gray-700 text-white focus:border-yellow-400"
                   value={formData.password}
                   onChange={(e) => handleChange('password', e.target.value)}
                   data-testid="input-password"
@@ -267,9 +276,9 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
                   data-testid="button-toggle-password"
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-500 hover:text-red-400" />
+                    <EyeOff className="h-4 w-4 text-gray-500 hover:text-yellow-400" />
                   ) : (
-                    <Eye className="h-4 w-4 text-gray-500 hover:text-red-400" />
+                    <Eye className="h-4 w-4 text-gray-500 hover:text-yellow-400" />
                   )}
                 </Button>
               </div>
@@ -285,10 +294,10 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
               </div>
             )}
 
-            {/* Bouton de soumission (Bouton principal Rouge) */}
+            {/* Bouton de soumission (Bouton principal Jaune Doré) */}
             <Button 
               type="submit" 
-              className={`w-full h-12 text-base font-bold bg-red-600 hover:bg-red-700 text-white shadow-lg  ${loading ? 'opacity-80' : ''}`} 
+              className={`w-full h-12 text-base font-bold bg-yellow-400 hover:bg-yellow-500 text-black shadow-lg shadow-yellow-400/50 ${loading ? 'opacity-80' : ''}`} 
               disabled={loading}
               data-testid="button-submit"
             >
@@ -303,7 +312,7 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
             </span>
             <Button 
               variant="ghost" 
-              className="ml-2 h-auto p-0 text-sm text-red-400 hover:text-red-300 hover:bg-transparent"
+              className="ml-2 h-auto p-0 text-sm text-yellow-400 hover:text-yellow-300 hover:bg-transparent"
               onClick={onToggleMode}
               data-testid="button-toggle-mode"
             >

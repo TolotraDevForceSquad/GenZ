@@ -103,7 +103,7 @@ const ValidationForm: React.FC<FormProps> = ({ onSubmit, onCancel, title, placeh
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder={placeholder}
-          className="w-full bg-gray-800 border border-gray-700 text-white placeholder-gray-500 p-3 rounded-lg resize-none focus:ring-red-500 focus:border-red-500 transition"
+          className="w-full bg-gray-800 border border-gray-700 text-white placeholder-gray-500 p-3 rounded-lg resize-none focus:ring-yellow-500 focus:border-yellow-500 transition"
           rows={4}
         />
       </div>
@@ -196,7 +196,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ alertId, currentUserId,
       <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-300 my-8 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center p-4 border-b border-gray-800 sticky top-0 bg-[#201d1d] z-10">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-red-500" />
+            <MessageCircle className="w-5 h-5 text-yellow-500" />
             Commentaires
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1 transition">
@@ -247,12 +247,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({ alertId, currentUserId,
           <input
             type="text"
             placeholder="Ajoutez un commentaire..."
-            className="flex-grow bg-gray-800 text-gray-200 border border-gray-700 rounded-full py-2 px-4 focus:ring-red-500 focus:border-red-500 focus:outline-none transition"
+            className="flex-grow bg-gray-800 text-gray-200 border border-gray-700 rounded-full py-2 px-4 focus:ring-yellow-500 focus:border-yellow-500 focus:outline-none transition"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             disabled={createCommentMutation.isPending}
           />
-          <button type="submit" className="ml-3 text-red-500 hover:text-white transition p-2 rounded-full hover:bg-gray-700" disabled={createCommentMutation.isPending || !comment.trim()}>
+          <button type="submit" className="ml-3 text-yellow-500 hover:text-white transition p-2 rounded-full hover:bg-gray-700" disabled={createCommentMutation.isPending || !comment.trim()}>
             <Send className="w-5 h-5" />
           </button>
         </form>
@@ -424,7 +424,7 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
 
   return (
     // CARD STYLE: Dark background, rounded, subtle border, full width on mobile
-    <div className="bg-[#201d1d] border border-gray-800 rounded-xl shadow-2xl mb-6 transition-all duration-300 hover:shadow-xl">
+    <div className="bg-[#201d1d] border border-gray-800 rounded-xl shadow-2xl mb-6 transition-all duration-300 hover:shadow-yellow-900/20">
 
       {/* En-tête de la publication */}
       <div className="p-4 flex items-start justify-between">
@@ -447,7 +447,7 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
               )}
             </div>
             <p className="text-xs text-gray-400 mt-0.5 flex flex-wrap items-center">
-              <span className="font-medium text-red-400">{alert.reason}</span>
+              <span className="font-medium text-yellow-400">{alert.reason}</span>
               <span className="mx-1">•</span>
               <span className="text-gray-400">{formatTimeAgo(alert.createdAt)}</span>
             </p>
@@ -572,7 +572,7 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
         {/* Bouton Commenter */}
         <button
           onClick={() => setShowCommentSection(true)}
-          className="flex items-center space-x-1 text-gray-400 hover:text-red-500 transition py-2 px-3 rounded-lg hover:bg-gray-800 w-full sm:w-auto justify-center sm:justify-start"
+          className="flex items-center space-x-1 text-gray-400 hover:text-yellow-500 transition py-2 px-3 rounded-lg hover:bg-gray-800 w-full sm:w-auto justify-center sm:justify-start"
         >
           <MessageCircle className="w-5 h-5" />
           <span className="font-medium">Commenter</span>
@@ -582,7 +582,7 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
         {alert.status === 'pending' && (
           <div className="flex flex-wrap justify-end items-start gap-x-2 gap-y-2 w-full sm:w-auto">
             {hasUserVoted ? (
-              <span className="px-3 py-1.5 bg-gray-700 text-red-400 rounded-full text-xs font-semibold flex items-center">
+              <span className="px-3 py-1.5 bg-gray-700 text-yellow-400 rounded-full text-xs font-semibold flex items-center">
                 <CheckCircle className="w-3 h-3 mr-1" /> Déjà voté
               </span>
             ) : (
@@ -735,7 +735,7 @@ const SOSForm: React.FC<SOSFormProps> = ({ onSubmit, onClose, loading }) => {
     setFormData(prev => ({ ...prev, media: file }));
   };
 
-  const inputClass = 'w-full bg-gray-800 text-white p-3 rounded-lg border border-gray-700 focus:ring-red-500 focus:border-red-500 placeholder-gray-500 transition';
+  const inputClass = 'w-full bg-gray-800 text-white p-3 rounded-lg border border-gray-700 focus:ring-yellow-500 focus:border-yellow-500 placeholder-gray-500 transition';
 
   const Label: React.FC<React.PropsWithChildren<{ htmlFor: string }>> = ({ htmlFor, children }) => (
     <label htmlFor={htmlFor} className="block text-sm font-medium text-gray-300 mb-1">
@@ -783,7 +783,7 @@ const SOSForm: React.FC<SOSFormProps> = ({ onSubmit, onClose, loading }) => {
       <div>
         <Label htmlFor="location">Localisation <span className="text-red-500">*</span></Label>
         <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-yellow-500" />
           <input
             id="location"
             type="text"
@@ -852,8 +852,8 @@ const SOSForm: React.FC<SOSFormProps> = ({ onSubmit, onClose, loading }) => {
             file:mr-4 file:py-2 file:px-4
             file:rounded-full file:border-0
             file:text-sm file:font-semibold
-            file:bg-gray-500 file:text-gray-900
-            hover:file:bg-gray-600 cursor-pointer transition"
+            file:bg-yellow-500 file:text-gray-900
+            hover:file:bg-yellow-600 cursor-pointer transition"
         />
         {formData.media && (
           <p className="text-sm text-gray-500 mt-2">
@@ -873,7 +873,7 @@ const SOSForm: React.FC<SOSFormProps> = ({ onSubmit, onClose, loading }) => {
         </button>
         <button
           type="submit"
-          className="flex-1 bg-red-500 text-gray-900 font-bold py-3 rounded-lg hover:bg-red-600 transition flex items-center justify-center"
+          className="flex-1 bg-yellow-500 text-gray-900 font-bold py-3 rounded-lg hover:bg-yellow-600 transition flex items-center justify-center"
           disabled={loading}
         >
           {loading ? 'Envoi...' : (
@@ -941,7 +941,7 @@ const NewAlertModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess:
       <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-sm sm:max-w-lg shadow-2xl animate-in fade-in zoom-in duration-300 my-8 max-h-[90vh] overflow-y-auto flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center p-4 border-b border-gray-800 sticky top-0 bg-[#201d1d] z-10">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Plus className="w-5 h-5 text-red-500" />
+            <Plus className="w-5 h-5 text-yellow-500" />
             Nouvelle Alerte SOS
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1 transition">
@@ -975,7 +975,7 @@ const LimitModal: React.FC<{ isOpen: boolean; onClose: () => void; userAlertsCou
           <div className="text-center mb-6">
             <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <p className="text-gray-300">
-              Vous avez créé <strong className="text-red-400">{userAlertsCount}</strong> alerte(s). En tant qu'utilisateur non vérifié,
+              Vous avez créé <strong className="text-yellow-400">{userAlertsCount}</strong> alerte(s). En tant qu'utilisateur non vérifié,
               vous êtes limité à une alerte. Veuillez vérifier votre compte pour créer plus d'alertes.
             </p>
           </div>
@@ -1230,7 +1230,7 @@ export default function Dashboard() {
   if (userLoading || alertsLoading) {
     return <div className="min-h-screen bg-[#161313] flex items-center justify-center text-white">
       <div className="flex flex-col items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-500 mb-4"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-yellow-500 mb-4"></div>
         <p className="text-lg">Chargement du tableau de bord...</p>
       </div>
     </div>;
@@ -1337,7 +1337,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#161313] text-white">
       {/* Header */}
         <div className='flex flex-col items-center mt-6 px-4 sm:px-6 text-center'>
-          <h1 className="text-3xl font-extrabold text-red-400 uppercase tracking-wider">Centre d'alerte</h1>
+          <h1 className="text-3xl font-extrabold text-yellow-400 tracking-wider">Centre d'alerte</h1>
           <p className="text-zinc-400 font-mono text-sm">
             Consultez ici l’ensemble des alertes reçues. Vous pouvez suivre leur statut, <br/>voir les détails importants et rester informé en temps réel de tout ce qui concerne votre compte.
           </p>
@@ -1384,7 +1384,7 @@ export default function Dashboard() {
         {hasMore && (
           <div className="flex justify-center py-8">
             {loadingMore ? (
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
             ) : (
               <button onClick={loadMoreAlerts} className="px-6 py-3 bg-gray-800 text-gray-300 border border-gray-700 rounded-lg hover:bg-gray-700 transition font-semibold">
                 Charger plus d'alertes
@@ -1401,7 +1401,7 @@ export default function Dashboard() {
           <img
             src={currentUser.avatar || currentUser.profileImageUrl || 'http://localhost:5005/uploads/icon-user.png'}
             alt="Profil"
-            className="w-12 h-12 rounded-full object-cover border-3 border-red-500 ring-2 ring-red-500 cursor-pointer shadow-xl hover:shadow-lg transition duration-300"
+            className="w-12 h-12 rounded-full object-cover border-3 border-yellow-500 ring-2 ring-yellow-500 cursor-pointer shadow-xl hover:shadow-yellow-500/50 transition duration-300"
           />
           {/* Tooltip Profil */}
           <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-700 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap flex items-center shadow-lg">
@@ -1414,7 +1414,7 @@ export default function Dashboard() {
         {/* FAB Nouvelle Alerte */}
         <button
           onClick={handleOpenSOSForm}
-          className="bg-red-500 p-4 rounded-full shadow-2xl hover:bg-red-600 transition duration-300 transform hover:scale-105"
+          className="bg-yellow-500 p-4 rounded-full shadow-2xl hover:bg-yellow-600 transition duration-300 transform hover:scale-105"
           title="Signaler une nouvelle alerte"
         >
           <Plus className="w-6 h-6 text-gray-900 font-bold" />

@@ -400,7 +400,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
   if (loading) {
     return <div className="min-h-screen bg-zinc-900 flex items-center justify-center text-white">
         <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-400 mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-yellow-400 mb-4"></div>
             <p className="text-lg text-zinc-300 font-mono">LOADING DATA...</p>
         </div>
     </div>;
@@ -411,7 +411,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
       <div className="space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-extrabold text-red-400 uppercase tracking-wider">CONSOLE ADMIN</h1>
+          <h1 className="text-3xl font-extrabold text-yellow-400 tracking-wider">Console admin</h1>
           <p className="text-zinc-400 font-mono text-sm">
             Gérez les utilisateurs et les alertes de la plateforme en temps réel.
           </p>
@@ -481,13 +481,13 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
           <TabsList className="grid w-full grid-cols-2 bg-zinc-950 border border-zinc-700 rounded-lg p-1">
             <TabsTrigger 
               value="users" 
-              className="data-[state=active]:bg-red-400 data-[state=active]:text-zinc-900 data-[state=active]:font-bold data-[state=active]:shadow-neon-sm data-[state=active]:shadow-red-400/30 text-zinc-300 hover:bg-zinc-700 transition-colors duration-200"
+              className="data-[state=active]:bg-yellow-400 data-[state=active]:text-zinc-900 data-[state=active]:font-bold data-[state=active]:shadow-neon-sm data-[state=active]:shadow-yellow-400/30 text-zinc-300 hover:bg-zinc-700 transition-colors duration-200"
             >
               Gestion des utilisateurs
             </TabsTrigger>
             <TabsTrigger 
               value="alerts"
-              className="data-[state=active]:bg-red-400 data-[state=active]:text-zinc-900 data-[state=active]:font-bold data-[state=active]:shadow-neon-sm data-[state=active]:shadow-red-400/30 text-zinc-300 hover:bg-zinc-700 transition-colors duration-200"
+              className="data-[state=active]:bg-yellow-400 data-[state=active]:text-zinc-900 data-[state=active]:font-bold data-[state=active]:shadow-neon-sm data-[state=active]:shadow-yellow-400/30 text-zinc-300 hover:bg-zinc-700 transition-colors duration-200"
             >
               Gestion des alertes
             </TabsTrigger>
@@ -507,14 +507,14 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                       <Search className="absolute left-3 top-3.5 h-4 w-4 text-zinc-500" />
                       <Input
                         placeholder="Rechercher un utilisateur..."
-                        className="pl-10 w-full sm:w-64 h-10 bg-zinc-900 border-zinc-700 text-white placeholder-zinc-600 focus:ring-1 focus:ring-red-400/70 focus:border-yellow-400/50 transition"
+                        className="pl-10 w-full sm:w-64 h-10 bg-zinc-900 border-zinc-700 text-white placeholder-zinc-600 focus:ring-1 focus:ring-yellow-400/70 focus:border-yellow-400/50 transition"
                         value={searchUsers}
                         onChange={(e) => setSearchUsers(e.target.value)}
                         data-testid="input-search-users"
                       />
                     </div>
                     <Select value={userFilter} onValueChange={setUserFilter}>
-                      <SelectTrigger className="w-full sm:w-48 h-10 bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-red-400/70 focus:border-yellow-400/50 transition" data-testid="select-user-filter">
+                      <SelectTrigger className="w-full sm:w-48 h-10 bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-yellow-400/70 focus:border-yellow-400/50 transition" data-testid="select-user-filter">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
@@ -533,11 +533,11 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                   <Table className="min-w-full">
                     <TableHeader className="bg-zinc-900 border-zinc-700">
                       <TableRow className="border-zinc-700 hover:bg-zinc-900">
-                        <TableHead className="text-red-400 text-xs uppercase tracking-wider font-mono min-w-[12rem]">Utilisateur</TableHead>
-                        <TableHead className="text-red-400 text-xs uppercase tracking-wider font-mono min-w-[8rem]">Contact</TableHead>
-                        <TableHead className="text-red-400 text-xs uppercase tracking-wider font-mono min-w-[6rem]">Statut</TableHead>
-                        <TableHead className="text-red-400 text-xs uppercase tracking-wider font-mono min-w-[8rem]">Activité</TableHead>
-                        <TableHead className="text-red-400 text-xs uppercase tracking-wider font-mono">Actions</TableHead>
+                        <TableHead className="text-yellow-400 text-xs uppercase tracking-wider font-mono min-w-[12rem]">Utilisateur</TableHead>
+                        <TableHead className="text-yellow-400 text-xs uppercase tracking-wider font-mono min-w-[8rem]">Contact</TableHead>
+                        <TableHead className="text-yellow-400 text-xs uppercase tracking-wider font-mono min-w-[6rem]">Statut</TableHead>
+                        <TableHead className="text-yellow-400 text-xs uppercase tracking-wider font-mono min-w-[8rem]">Activité</TableHead>
+                        <TableHead className="text-yellow-400 text-xs uppercase tracking-wider font-mono">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody className="text-white">
@@ -545,9 +545,9 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                         <TableRow key={user.id} className="border-zinc-700 hover:bg-zinc-700/50 transition-colors">
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <Avatar className="w-8 h-8 border border-red-400/50">
-                                <AvatarImage src={user.avatar || 'http://localhost:5005/uploads/icon-user.png'} alt={user.name} />
-                                <AvatarFallback className="bg-zinc-700 text-red-400 font-bold">{user.name.charAt(0)}</AvatarFallback>
+                              <Avatar className="w-8 h-8 border border-yellow-400/50">
+                                <AvatarImage src={user.avatar} alt={user.name} />
+                                <AvatarFallback className="bg-zinc-700 text-yellow-400 font-bold">{user.name.charAt(0)}</AvatarFallback>
                               </Avatar>
                               <div>
                                 <div className="flex items-center gap-2">
@@ -556,7 +556,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                                     <Shield className="w-4 h-4 text-green-400" title="Vérifié CIN" />
                                   )}
                                   {user.isAdmin && (
-                                    <Badge className="bg-white-400/30 text-red-400 border border-gray-400/50 text-[10px] font-mono p-0.5 px-1.5 uppercase leading-none">Admin</Badge>
+                                    <Badge className="bg-yellow-400/30 text-yellow-400 border border-yellow-400/50 text-[10px] font-mono p-0.5 px-1.5 uppercase leading-none">Admin</Badge>
                                   )}
                                 </div>
                                 <p className="text-xs text-zinc-500 font-mono">
@@ -670,14 +670,14 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                       <Search className="absolute left-3 top-3.5 h-4 w-4 text-zinc-500" />
                       <Input
                         placeholder="Rechercher une alerte..."
-                        className="pl-10 w-full sm:w-64 h-10 bg-zinc-900 border-zinc-700 text-white placeholder-zinc-600 focus:ring-1 focus:ring-red-400/70 focus:border-red-400/50 transition"
+                        className="pl-10 w-full sm:w-64 h-10 bg-zinc-900 border-zinc-700 text-white placeholder-zinc-600 focus:ring-1 focus:ring-yellow-400/70 focus:border-yellow-400/50 transition"
                         value={searchAlerts}
                         onChange={(e) => setSearchAlerts(e.target.value)}
                         data-testid="input-search-alerts"
                       />
                     </div>
                     <Select value={alertFilter} onValueChange={setAlertFilter}>
-                      <SelectTrigger className="w-full sm:w-48 h-10 bg-zinc-900 border-zinc-700 text-white focus:ring-1 transition" data-testid="select-alert-filter">
+                      <SelectTrigger className="w-full sm:w-48 h-10 bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-yellow-400/70 focus:border-yellow-400/50 transition" data-testid="select-alert-filter">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
@@ -695,12 +695,12 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                   <Table className="min-w-full">
                     <TableHeader className="bg-zinc-900 border-zinc-700">
                       <TableRow className="border-zinc-700 hover:bg-zinc-900">
-                        <TableHead className="text-red-400 text-xs uppercase tracking-wider font-mono min-w-[10rem]">Alerte</TableHead>
-                        <TableHead className="text-red-400 text-xs uppercase tracking-wider font-mono min-w-[8rem]">Auteur</TableHead>
-                        <TableHead className="text-red-400 text-xs uppercase tracking-wider font-mono min-w-[10rem]">Localisation</TableHead>
-                        <TableHead className="text-red-400 text-xs uppercase tracking-wider font-mono min-w-[8rem]">Statut</TableHead>
-                        <TableHead className="text-red-400 text-xs uppercase tracking-wider font-mono min-w-[8rem]">Validations</TableHead>
-                        <TableHead className="text-red-400 text-xs uppercase tracking-wider font-mono">Actions</TableHead>
+                        <TableHead className="text-yellow-400 text-xs uppercase tracking-wider font-mono min-w-[10rem]">Alerte</TableHead>
+                        <TableHead className="text-yellow-400 text-xs uppercase tracking-wider font-mono min-w-[8rem]">Auteur</TableHead>
+                        <TableHead className="text-yellow-400 text-xs uppercase tracking-wider font-mono min-w-[10rem]">Localisation</TableHead>
+                        <TableHead className="text-yellow-400 text-xs uppercase tracking-wider font-mono min-w-[8rem]">Statut</TableHead>
+                        <TableHead className="text-yellow-400 text-xs uppercase tracking-wider font-mono min-w-[8rem]">Validations</TableHead>
+                        <TableHead className="text-yellow-400 text-xs uppercase tracking-wider font-mono">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody className="text-white">
@@ -796,7 +796,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className={modalConfig.type === 'userView' ? "max-w-4xl bg-zinc-800 border-zinc-700 text-white" : "max-w-md sm:max-w-lg bg-zinc-800 border-zinc-700 text-white"}>
           <DialogHeader className="border-b border-zinc-700 pb-3">
-            <DialogTitle className="text-xl font-bold text-red-400 uppercase tracking-wider">{modalConfig.title}</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-yellow-400 uppercase tracking-wider">{modalConfig.title}</DialogTitle>
             {modalConfig.type === 'userEdit' || modalConfig.type === 'userView' ? null : (
               <DialogDescription className="text-zinc-400 font-mono">{modalConfig.message}</DialogDescription>
             )}
@@ -1061,7 +1061,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                   id="firstName"
                   value={editUserForm.firstName}
                   onChange={(e) => setEditUserForm({ ...editUserForm, firstName: e.target.value })}
-                  className="bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-red-400/70 focus:border-yellow-400/50"
+                  className="bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-yellow-400/70 focus:border-yellow-400/50"
                 />
               </div>
               <div className="space-y-2">
@@ -1070,7 +1070,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                   id="lastName"
                   value={editUserForm.lastName}
                   onChange={(e) => setEditUserForm({ ...editUserForm, lastName: e.target.value })}
-                  className="bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-red-400/70 focus:border-yellow-400/50"
+                  className="bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-yellow-400/70 focus:border-yellow-400/50"
                 />
               </div>
               <div className="space-y-2">
@@ -1080,7 +1080,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                   type="email"
                   value={editUserForm.email}
                   onChange={(e) => setEditUserForm({ ...editUserForm, email: e.target.value })}
-                  className="bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-red-400/70 focus:border-yellow-400/50"
+                  className="bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-yellow-400/70 focus:border-yellow-400/50"
                 />
               </div>
               <div className="space-y-2">
@@ -1089,7 +1089,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                   id="phone"
                   value={editUserForm.phone}
                   onChange={(e) => setEditUserForm({ ...editUserForm, phone: e.target.value })}
-                  className="bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-red-400/70 focus:border-yellow-400/50"
+                  className="bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-yellow-400/70 focus:border-yellow-400/50"
                 />
               </div>
               <div className="space-y-2">
@@ -1098,7 +1098,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                   id="neighborhood"
                   value={editUserForm.neighborhood}
                   onChange={(e) => setEditUserForm({ ...editUserForm, neighborhood: e.target.value })}
-                  className="bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-red-400/70 focus:border-yellow-400/50"
+                  className="bg-zinc-900 border-zinc-700 text-white focus:ring-1 focus:ring-yellow-400/70 focus:border-yellow-400/50"
                 />
               </div>
               <div className="space-y-2">
@@ -1107,7 +1107,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                     id="hasCIN"
                     checked={editUserForm.hasCIN}
                     onCheckedChange={(checked) => setEditUserForm({ ...editUserForm, hasCIN: !!checked })}
-                    className="border-zinc-500 data-[state=checked]:bg-red-400 data-[state=checked]:text-zinc-900"
+                    className="border-zinc-500 data-[state=checked]:bg-yellow-400 data-[state=checked]:text-zinc-900"
                   />
                   <Label htmlFor="hasCIN" className="text-zinc-300">A CIN</Label>
                 </div>
@@ -1118,7 +1118,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                     id="isAdmin"
                     checked={editUserForm.isAdmin}
                     onCheckedChange={(checked) => setEditUserForm({ ...editUserForm, isAdmin: !!checked })}
-                    className="border-zinc-500 data-[state=checked]:bg-red-400 data-[state=checked]:text-zinc-900"
+                    className="border-zinc-500 data-[state=checked]:bg-yellow-400 data-[state=checked]:text-zinc-900"
                   />
                   <Label htmlFor="isAdmin" className="text-zinc-300">Admin</Label>
                 </div>
@@ -1131,14 +1131,14 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                   value={editUserForm.password}
                   onChange={(e) => setEditUserForm({ ...editUserForm, password: e.target.value })}
                   placeholder="Laisser vide pour ne pas changer"
-                  className="bg-zinc-900 border-zinc-700 text-white placeholder-zinc-600 focus:ring-1 focus:ring-red-400/70 focus:border-yellow-400/50"
+                  className="bg-zinc-900 border-zinc-700 text-white placeholder-zinc-600 focus:ring-1 focus:ring-yellow-400/70 focus:border-yellow-400/50"
                 />
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={closeModal} className="bg-zinc-700 hover:bg-zinc-700/80 text-white border-zinc-600 font-bold transition">
                   Annuler
                 </Button>
-                <Button type="submit" className="bg-red-400 hover:bg-red-500 text-zinc-900 font-bold transition">Enregistrer</Button>
+                <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-zinc-900 font-bold transition">Enregistrer</Button>
               </DialogFooter>
             </form>
           ) : (
@@ -1151,7 +1151,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                   type="button" 
                   variant={modalConfig.type.includes('Delete') || modalConfig.type.includes('Suspend') ? "destructive" : "default"} 
                   onClick={handleConfirmation}
-                  className={modalConfig.type.includes('Delete') ? "bg-red-700 hover:bg-red-800 text-white font-bold" : "bg-red-400 hover:bg-red-500 text-zinc-900 font-bold"}
+                  className={modalConfig.type.includes('Delete') ? "bg-red-700 hover:bg-red-800 text-white font-bold" : "bg-yellow-400 hover:bg-yellow-500 text-zinc-900 font-bold"}
                 >
                   Confirmer
                 </Button>

@@ -364,7 +364,7 @@ export default function ProfilePage({ token }: ProfilePageProps) {
         <div className="min-h-screen bg-[#161313] text-white">
             {/* Header */}
             <div className='flex flex-col items-center mt-6 px-4 sm:px-6 text-center'>
-                <h1 className="text-3xl font-extrabold text-red-400 uppercase tracking-wider">Mon Profil</h1>
+                <h1 className="text-3xl font-extrabold text-yellow-400 tracking-wider">Mon Profil</h1>
                 <p className="text-zinc-400 font-mono text-sm">
                     Gérez vos informations personnelles et votre statut de vérification.
                 </p>

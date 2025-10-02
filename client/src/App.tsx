@@ -154,19 +154,19 @@ function AuthenticatedApp() {
             </div>
           </header> */}
 
-          <header className="flex items-center justify-between p-4 border-b border-red-400/30 bg-gray-950/90 backdrop-blur supports-[backdrop-filter]:bg-gray-950/80 sticky top-0 z-10">
+          <header className="flex items-center justify-between p-4 border-b border-yellow-400/30 bg-gray-950/90 backdrop-blur supports-[backdrop-filter]:bg-gray-950/80 sticky top-0 z-10">
 
             {/* Bouton Sidebar (Gauche) */}
             <SidebarTrigger
               data-testid="button-sidebar-toggle"
-              className="text-red-400 hover:text-white transition-colors h-6 w-6 md:h-7 md:w-7" // Taille augmentée
+              className="text-yellow-400 hover:text-white transition-colors h-6 w-6 md:h-7 md:w-7" // Taille augmentée
             />
 
             {/* Section Utilisateur (Droite - Optimisée pour le responsive) */}
             <div className="flex items-center gap-3">
 
               {/* Conteneur d'information utilisateur avec style plat et glow discret */}
-              <span className="flex items-center text-sm text-gray-400 p-2 rounded-lg bg-gray-900 border border-red-400/20 shadow-inner shadow-gray-800/50">
+              <span className="flex items-center text-sm text-gray-400 p-2 rounded-lg bg-gray-900 border border-yellow-400/20 shadow-inner shadow-gray-800/50">
 
                 {/* Texte de contexte : Masqué sur les petits écrans (sm:inline) */}
                 <span className="hidden sm:inline mr-1 text-gray-400">Connecté en tant que</span>
@@ -181,7 +181,7 @@ function AuthenticatedApp() {
                   <Badge
                     variant="secondary"
                     // Classe ajustée pour un badge plus petit (h-5, text-xs) et plus lisible
-                    className="ml-2 h-5 text-xs bg-red-400 text-gray-950 font-extrabold border-none"
+                    className="ml-2 h-5 text-xs bg-yellow-400 text-gray-950 font-extrabold border-none"
                   >
                     ADMIN
                   </Badge>
@@ -217,7 +217,7 @@ function AuthenticatedApp() {
                     </p>
                     <Button
                       onClick={() => setLocation('/dashboard')}
-                      className="mt-6 bg-red-500 hover:bg-red-400 text-zinc-900 font-bold transition"
+                      className="mt-6 bg-yellow-500 hover:bg-yellow-400 text-zinc-900 font-bold transition"
                     >
                       Retour au tableau de bord
                     </Button>

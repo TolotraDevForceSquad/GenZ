@@ -21,20 +21,12 @@ export default function LandingHero({ onLogin, onRegister }: LandingHeroProps) {
         <div className="text-center mb-16 md:mb-24">
           
           {/* Logo avec Glow Jaune Doré */}
-          <div className="flex justify-center mb-6 md:mb-10">
-            {/* Conteneur pour l'effet de glow autour du logo */}
-            {/* <div className={`p-1 rounded-3xl bg-gradient-to-br from-yellow-400/80 to-amber-600/80 ${neonGoldShadow}`}>
-              <img 
-                src={genZLogo} 
-                alt="Gasy Iray" 
-                className="w-20 h-20 md:w-28 md:h-28 rounded-3xl object-cover border-4 border-gray-950 transition-all duration-500 hover:scale-105" 
-              />
-            </div> */}
-          </div>
+          
           
           {/* Titre Principal avec Dégradé Jaune Doré */}
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold mb-6 tracking-tight text-white">
-            <span className="block text-gray-100">Sécurité Communautaire</span>
+            {/* <span className="block text-gray-100">Sécurité Communautaire</span> */}
+            <span className="block text-gray-100">Gasy Miray Hina</span>
             {/* Dégradé Golden Yellow pour l'effet lumineux */}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-500">Gasy Hub</span>
           </h1>

@@ -353,9 +353,9 @@ export default function MapView({
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header (Mise en page centrée et plus compacte sur mobile) */}
         <div className="text-center space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center justify-center gap-2 mx-auto">
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center justify-center gap-2 mx-auto text-yellow-400">
             <Map className="w-6 h-6 sm:w-8 sm:h-8" />
-            Carte d'insécurité
+            Carte d'insécurité 
           </h1>
           <p className="text-sm sm:text-base text-gray-400">
             Visualisez les alertes de sécurité en temps réel sur la carte interactive

@@ -22,7 +22,7 @@ export default function Header({ user, onLogout, onProfile, onSettings }: Header
     <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <img src={genZLogo} alt="Gasy Iray" className="w-10 h-10 rounded-lg" />
+          {/* <img src={genZLogo} alt="Gasy Iray" className="w-10 h-10 rounded-lg" /> */}
           <div>
             <h1 className="text-xl font-bold text-foreground font-[family-name:var(--font-sans)]">Gasy Hub</h1>
             <p className="text-sm text-muted-foreground">Plateforme de Sécurité</p>
