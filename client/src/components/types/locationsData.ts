@@ -14,9 +14,9 @@ export const tananariveLocations: Location[] = [
   { name: "Ambalavao Isotry", latitude: -18.918, longitude: 47.525, district: "Antananarivo-I" },
   { name: "Ambatomena Amboasarikely", latitude: -18.920, longitude: 47.530, district: "Antananarivo-I" },
   { name: "Ambatovinaky", latitude: -18.910, longitude: 47.530, district: "Antananarivo-I" },
-  { name: "Ambohitsorohitra-Analakely", latitude: -18.908, longitude: 47.525, district: "Antananarivo-I" },
+  { name: "Ambohitsorohitra-Analakely", latitude: -18.9083, longitude: 47.5263, district: "Antananarivo-I" }, // Updated coords from OSM
   { name: "Ampandrana Ankadivato", latitude: -18.915, longitude: 47.528, district: "Antananarivo-I" },
-  { name: "Amparibe - Ambohidahy - Mahamasina Nord", latitude: -18.905, longitude: 47.530, district: "Antananarivo-I" },
+  { name: "Amparibe - Ambohidahy - Mahamasina Nord", latitude: -18.9184, longitude: 47.5248, district: "Antananarivo-I" }, // Updated coords from OSM
   { name: "Anatihazo Isotry", latitude: -18.920, longitude: 47.522, district: "Antananarivo-I" },
   { name: "Andavamamba Anatihazo 1", latitude: -18.922, longitude: 47.525, district: "Antananarivo-I" },
   { name: "Andavamamba Anatihazo 2", latitude: -18.923, longitude: 47.525, district: "Antananarivo-I" },
@@ -39,7 +39,7 @@ export const tananariveLocations: Location[] = [
   { name: "Antohomadinika III G Hangar", latitude: -18.923, longitude: 47.517, district: "Antananarivo-I" },
   { name: "Avaratetezana Bekiraro", latitude: -18.915, longitude: 47.530, district: "Antananarivo-I" },
   { name: "Cité Ambodinisotry", latitude: -18.925, longitude: 47.530, district: "Antananarivo-I" },
-  { name: "Cité Ampefiloha", latitude: -18.908, longitude: 47.515, district: "Antananarivo-I" },
+  { name: "Cité Ampefiloha", latitude: -18.9132, longitude: 47.5171, district: "Antananarivo-I" }, // Updated coords from OSM
   { name: "Faravohitra Ambony", latitude: -18.902, longitude: 47.528, district: "Antananarivo-I" },
   { name: "Faravohitra Mandrosoa", latitude: -18.903, longitude: 47.527, district: "Antananarivo-I" },
   { name: "Isoraka-Ampatsakana-Ambalavao", latitude: -18.905, longitude: 47.527, district: "Antananarivo-I" },
@@ -133,8 +133,8 @@ export const tananariveLocations: Location[] = [
   { name: "Anosipatrana atsinanana", latitude: -18.935, longitude: 47.522, district: "Antananarivo-IV" },
   { name: "Anosizato est I", latitude: -18.945, longitude: 47.535, district: "Antananarivo-IV" },
   { name: "Anosizato est II", latitude: -18.947, longitude: 47.535, district: "Antananarivo-IV" },
-  { name: "Fiadanana III L", latitude: -18.942, longitude: 47.525, district: "Antananarivo-IV" },
-  { name: "Fiadanana III N", latitude: -18.943, longitude: 47.527, district: "Antananarivo-IV" },
+  { name: "Fiadianana III L", latitude: -18.942, longitude: 47.525, district: "Antananarivo-IV" },
+  { name: "Fiadianana III N", latitude: -18.943, longitude: 47.527, district: "Antananarivo-IV" },
   { name: "Ilanivato Ampasika", latitude: -18.940, longitude: 47.530, district: "Antananarivo-IV" },
   { name: "Ivolaniray", latitude: -18.925, longitude: 47.540, district: "Antananarivo-IV" },
   { name: "Mahamasina sud", latitude: -18.910, longitude: 47.532, district: "Antananarivo-IV" },
@@ -197,7 +197,9 @@ export const tananariveLocations: Location[] = [
   { name: "Andraharo", latitude: -18.875, longitude: 47.515, district: "Antananarivo-VI" },
   { name: "Andranomena", latitude: -18.870, longitude: 47.520, district: "Antananarivo-VI" },
   { name: "Anjanakomboro", latitude: -18.865, longitude: 47.525, district: "Antananarivo-VI" },
-  { name: "Ankazomanga atsimo", latitude: -18.860, longitude: 47.530, district: "Antananarivo-VI" }
+  { name: "Ankazomanga atsimo", latitude: -18.860, longitude: 47.530, district: "Antananarivo-VI" },
+  // Ajout d'un lieu manquant exemple (basé sur des données OSM)
+  { name: "Anosibe", latitude: -18.930, longitude: 47.520, district: "Antananarivo-IV" } // Exemple d'ajout pour un lieu manquant
 ];
 
 // Fonction utilitaire pour rechercher des suggestions

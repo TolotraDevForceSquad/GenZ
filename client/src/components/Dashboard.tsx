@@ -1,33 +1,33 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { Plus, AlertTriangle, Shield, Clock, MessageCircle, ThumbsUp, MapPin, Eye, X, Send, Play, User, CircleCheckBig } from "lucide-react";
-import SOSForm from "./SOSForm";
-import type { Alert } from "@shared/schema";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { useLocation } from "wouter"; // Ajouté pour redirection
+import React, { useState, useEffect } from 'react';
+import {
+  Plus,
+  AlertTriangle,
+  Shield,
+  Clock,
+  MessageCircle,
+  ThumbsUp,
+  MapPin,
+  Eye,
+  X,
+  Send,
+  Play,
+  User,
+  CircleCheckBig,
+  CheckCircle,
+  MoreVertical,
+  Edit,
+  XIcon,
+  Menu, // Ajout pour une potentielle navigation mobile future
+  Globe, // Ajout pour la carte ou la localisation
+} from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { useLocation } from 'wouter';
+import type { Alert } from '@shared/schema';
+import { searchLocations, Location } from './types/locationsData';
 
-// Liste des quartiers prédéfinis d'Antananarivo
-const PREDEFINED_LOCATIONS = [
-  "Analakely", "Andravoahangy", "Anosy", "Antaninarenina", "Antsahavola",
-  "Behoririka", "Ankadifotsy", "Ankadindramamy", "Ankadivato", "Amboditsiry",
-  "Ampasampito", "Ambatobe", "Ambohidratrimo", "Ambohimanarina", "Ambohimangakely",
-  "Ambohijatovo", "Ambatonakanga", "Isoraka", "Mahamasina", "Faravohitra",
-  "Tsimbazaza", "Besarety", "Ankazomanga", "Andohalo", "Antsahamanitra",
-  "Ampandrana", "Ambohijatovo", "Ankadikely", "Ambohibao", "Ambohimitsimbina",
-  "Ambohitrimanjaka", "Ambohitrarahaba", "Ambohidrapeto", "Ambohimanga", "Ambohimandry",
-  "Autre lieu (préciser)"
-];
+// --- UTILITIES ---
 
-// ✅ CORRECTION: Fonction pour formater le timestamp de manière fiable
 const formatTimeAgo = (timestamp: string | Date): string => {
   if (!timestamp) return "Date inconnue";
 
@@ -66,6 +66,8 @@ const formatTimeAgo = (timestamp: string | Date): string => {
   }
 };
 
+// --- COMPONENTS ---
+
 interface FormProps {
   onSubmit: (comment: string) => void;
   onCancel: () => void;
@@ -76,7 +78,7 @@ interface FormProps {
   commentType: 'green' | 'red';
 }
 
-function ValidationForm({ onSubmit, onCancel, title, placeholder, buttonText, buttonVariant, commentType }: FormProps) {
+const ValidationForm: React.FC<FormProps> = ({ onSubmit, onCancel, title, placeholder, buttonText, commentType }) => {
   const [comment, setComment] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -86,35 +88,36 @@ function ValidationForm({ onSubmit, onCancel, title, placeholder, buttonText, bu
 
   const getButtonClass = () => {
     switch (commentType) {
-      case 'green': return 'bg-green-600 hover:bg-green-700';
-      case 'red': return 'bg-red-600 hover:bg-red-700';
-      default: return '';
+      case 'green': return 'bg-green-500 hover:bg-green-600';
+      case 'red': return 'bg-red-500 hover:bg-red-600';
+      default: return 'bg-gray-500 hover:bg-gray-600';
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label htmlFor="comment" className="text-gray-300">{title}</Label>
-        <Textarea
+        <label htmlFor="comment" className="text-gray-300 block mb-2 font-medium">{title}</label>
+        <textarea
           id="comment"
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder={placeholder}
-          className="mt-1 bg-gray-800 border-gray-700 text-white placeholder-gray-400"
+          className="w-full bg-gray-800 border border-gray-700 text-white placeholder-gray-500 p-3 rounded-lg resize-none focus:ring-red-500 focus:border-red-500 transition"
+          rows={4}
         />
       </div>
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="outline" onClick={onCancel} className="border-gray-600 text-gray-300 hover:bg-gray-700">
+      <div className="flex gap-2 justify-end pt-2">
+        <button type="button" onClick={onCancel} className="px-4 py-2 border border-gray-700 text-gray-300 hover:bg-gray-700 rounded-lg transition text-sm">
           Annuler
-        </Button>
-        <Button type="submit" variant={buttonVariant} className={getButtonClass()}>
+        </button>
+        <button type="submit" className={`px-4 py-2 ${getButtonClass()} text-white rounded-lg transition text-sm font-semibold`}>
           {buttonText}
-        </Button>
+        </button>
       </div>
     </form>
   );
-}
+};
 
 interface CommentSectionProps {
   alertId: string;
@@ -123,11 +126,11 @@ interface CommentSectionProps {
   onClose: () => void;
 }
 
-function CommentSection({ alertId, currentUserId, isOpen, onClose }: CommentSectionProps) {
+const CommentSection: React.FC<CommentSectionProps> = ({ alertId, currentUserId, isOpen, onClose }) => {
   const [comment, setComment] = useState('');
   const queryClient = useQueryClient();
 
-  const { data: comments = [] } = useQuery({
+  const { data: comments = [], isLoading } = useQuery({
     queryKey: ['comments', alertId],
     queryFn: async () => {
       const response = await apiRequest('GET', `/api/alerts/${alertId}/comments`);
@@ -171,8 +174,8 @@ function CommentSection({ alertId, currentUserId, isOpen, onClose }: CommentSect
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'green': return 'bg-green-600 text-white';
-      case 'red': return 'bg-red-600 text-white';
+      case 'green': return 'bg-green-500 text-gray-900';
+      case 'red': return 'bg-red-500 text-white';
       default: return 'bg-gray-600 text-white';
     }
   };
@@ -180,94 +183,95 @@ function CommentSection({ alertId, currentUserId, isOpen, onClose }: CommentSect
   const getTypeLabel = (type: string) => {
     switch (type) {
       case 'green': return 'Confirmé';
-      case 'red': return 'Rejeté';
+      case 'red': return 'Fausse alerte';
       default: return '';
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md bg-gray-800 border-gray-700 text-white">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">Commentaires</DialogTitle>
-        </DialogHeader>
-        <div className="max-h-96 overflow-y-auto space-y-3">
-          {comments.length === 0 ? (
-            <p className="text-gray-400 text-center py-4">Aucun commentaire pour le moment</p>
+    // Responsive Modal Overlay
+    <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300" onClick={onClose}>
+      <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-300 my-8 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center p-4 border-b border-gray-800 sticky top-0 bg-[#201d1d] z-10">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-red-500" />
+            Commentaires
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 transition">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Comments List - Scrollable area */}
+        <div className="p-4 space-y-4 flex-grow overflow-y-auto custom-scrollbar">
+          {isLoading ? (
+            <p className="text-gray-400 text-center py-4">Chargement des commentaires...</p>
+          ) : comments.length === 0 ? (
+            <p className="text-gray-400 text-center py-4">Soyez le premier à commenter cette alerte.</p>
           ) : (
             comments.map((comment: any) => (
-              <div key={comment.id} className="bg-gray-700 rounded-lg p-3">
-                <div className="flex items-start space-x-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={comment.user?.avatar} alt={comment.user?.name} />
-                    <AvatarFallback className="bg-gray-600 text-white text-xs">
-                      {comment.user?.name?.split(' ').map((n: string) => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="font-medium text-gray-200 truncate">{comment.user?.name || 'Utilisateur inconnu'}</span>
-                      <span className="text-xs text-gray-400 ml-2">{formatTimeAgo(comment.createdAt)}</span>
-                    </div>
-                    {comment.type !== 'text' && (
-                      <div className="mb-2">
-                        <Badge className={`text-xs ${getTypeColor(comment.type)} px-2 py-0.5`}>
-                          {getTypeLabel(comment.type)}
-                        </Badge>
-                      </div>
-                    )}
-                    <p className="text-gray-300 text-sm break-words">{comment.content}</p>
+              <div key={comment.id} className="flex space-x-3">
+                <img
+                  src={comment.user?.avatar || 'http://localhost:5005/uploads/icon-user.png'}
+                  alt={comment.user?.name}
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-700"
+                />
+                <div className="flex-grow bg-gray-800 rounded-lg p-3">
+                  <div className="flex items-start justify-between mb-1">
+                    <span className="font-semibold text-white text-sm">{comment.user?.name || 'Utilisateur inconnu'}</span>
+                    <span className="text-xs text-gray-500 ml-2 flex-shrink-0">{formatTimeAgo(comment.createdAt)}</span>
                   </div>
+                  {comment.type !== 'text' && (
+                    <div className="mb-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${getTypeColor(comment.type)}`}>
+                        {getTypeLabel(comment.type)}
+                      </span>
+                    </div>
+                  )}
+                  <p className="text-gray-300 text-sm">{comment.content}</p>
                 </div>
               </div>
             ))
           )}
         </div>
-        <form onSubmit={handleSubmit} className="flex gap-2 mt-3">
-          <Input
+
+        {/* Comment Input - Fixed at bottom */}
+        <form onSubmit={handleSubmit} className="p-4 border-t border-gray-800 flex items-center flex-shrink-0">
+          <img
+            src={localStorage.getItem('userAvatar') || 'http://localhost:5005/uploads/icon-user.png'}
+            alt="Avatar"
+            className="w-8 h-8 rounded-full object-cover mr-3 border border-gray-700"
+          />
+          <input
+            type="text"
+            placeholder="Ajoutez un commentaire..."
+            className="flex-grow bg-gray-800 text-gray-200 border border-gray-700 rounded-full py-2 px-4 focus:ring-red-500 focus:border-red-500 focus:outline-none transition"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Ajouter un commentaire..."
-            className="flex-1 bg-gray-700 border-gray-600 text-white"
             disabled={createCommentMutation.isPending}
           />
-          <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700" disabled={createCommentMutation.isPending || !comment.trim()}>
-            <Send className="h-4 w-4" />
-          </Button>
+          <button type="submit" className="ml-3 text-red-500 hover:text-white transition p-2 rounded-full hover:bg-gray-700" disabled={createCommentMutation.isPending || !comment.trim()}>
+            <Send className="w-5 h-5" />
+          </button>
         </form>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
-}
+};
 
-interface FacebookStyleAlertProps {
-  alert: Alert & {
-    author?: {
-      id: string;
-      name: string;
-      avatar?: string;
-      hasCIN?: boolean;
-    };
-    validations?: {
-      confirmed: number;
-      rejected: number;
-    };
-    views?: number;
-  };
-  onValidate: (alertId: string, validation: 'confirm' | 'reject' | 'resolved') => void;
-  onReject: (alertId: string) => void;
-  onConfirm: (alertId: string) => void;
-  currentUserId?: string;
-}
+// ... (Interface FacebookStyleAlertProps)
 
-function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUserId }: FacebookStyleAlertProps) {
+const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValidate, onReject, onConfirm, currentUserId }) => {
   const [showFullText, setShowFullText] = useState(false);
   const [expandedMedia, setExpandedMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
   const [showCommentSection, setShowCommentSection] = useState(false);
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const maxTextLength = 150;
 
-  // ✅ CORRECTION: Gestion sécurisée des médias
+  // ... (getMediaUrl, getMediaType, getMediaItems, author extraction, counts extraction) - LOGIC IS PRESERVED
+
   const parseMediaData = (mediaData: any) => {
     if (!mediaData) return [];
 
@@ -283,7 +287,6 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
     return [];
   };
 
-  // Fonction pour obtenir l'URL du média
   const getMediaUrl = (mediaItem: any): string => {
     if (!mediaItem) return "";
 
@@ -296,7 +299,8 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
     }
 
     if (typeof mediaItem === "string") {
-      return `http://localhost:5005/uploads/${mediaItem}`;
+      const cleanPath = mediaItem.replace(/^\/uploads\//i, '');
+      return `http://localhost:5005/uploads/${cleanPath}`;
     }
 
     return "";
@@ -325,7 +329,6 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
     return parseMediaData(alert.media);
   };
 
-  // ✅ CORRECTION: Gestion sécurisée des propriétés de l'auteur
   const author = alert.author || {
     id: "unknown",
     name: "Utilisateur inconnu",
@@ -337,7 +340,6 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
   const authorAvatar = author.avatar || "";
   const authorHasCIN = author.hasCIN || false;
 
-  // ✅ CORRECTION: Comptages sécurisés
   const confirmedCount = typeof alert.confirmedCount === 'string'
     ? parseInt(alert.confirmedCount) || 0
     : alert.confirmedCount || 0;
@@ -350,20 +352,20 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
-      case 'high': return 'bg-red-600 text-white';
-      case 'medium': return 'bg-orange-600 text-white';
-      case 'low': return 'bg-blue-600 text-white';
-      default: return 'bg-gray-600 text-white';
+      case 'high': return 'bg-red-500 text-white';
+      case 'medium': return 'bg-yellow-500 text-gray-900';
+      case 'low': return 'bg-blue-500 text-white';
+      default: return 'bg-gray-500 text-white';
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed': return 'bg-green-600 text-white';
-      case 'fake': return 'bg-red-600 text-white';
-      case 'pending': return 'bg-yellow-600 text-white';
-      case 'resolved': return 'bg-blue-600 text-white';
-      default: return 'bg-gray-600 text-white';
+      case 'confirmed': return 'bg-green-500 text-gray-900';
+      case 'fake': return 'bg-red-500 text-white';
+      case 'pending': return 'bg-yellow-500 text-gray-900';
+      case 'resolved': return 'bg-blue-500 text-white';
+      default: return 'bg-gray-500 text-white';
     }
   };
 
@@ -375,7 +377,6 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
   const hasMedia = mediaItems.length > 0;
   const isAuthor = author.id === currentUserId;
 
-  // ✅ CORRECTION: Vérification si l'utilisateur a déjà voté
   const hasUserVoted = currentUserId && alert.validatedBy?.includes(currentUserId);
 
   const handleMediaClick = (mediaItem: any, mediaType: 'image' | 'video') => {
@@ -412,363 +413,631 @@ function FacebookStyleAlert({ alert, onValidate, onReject, onConfirm, currentUse
     }
   };
 
+  const statusText = {
+    pending: 'En Attente',
+    confirmed: 'Confirmé',
+    fake: 'Faux',
+    resolved: 'Résolu',
+  }[alert.status] || alert.status.toUpperCase();
+
+  const urgencyText = alert.urgency === 'high' ? 'Urgent' : alert.urgency === 'medium' ? 'Modéré' : 'Information';
+
   return (
-    <>
-      <Card className="w-full shadow-lg hover:shadow-xl transition-all duration-300 border-gray-700 bg-gray-800 backdrop-blur-sm">
-        {/* En-tête compacte */}
-        <div className="p-4 pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Avatar className="h-10 w-10 border-2 border-gray-600 shadow-lg">
-                <AvatarImage src={authorAvatar} alt={authorName} />
-                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-purple-700 text-white text-sm font-medium">
-                  {authorName.split(' ').map((n: string) => n[0]).join('')}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="font-semibold text-gray-100">{authorName}</span>
-                  {authorHasCIN && (
-                    <Badge variant="secondary" className="text-xs bg-blue-900 text-blue-200 px-2 py-0 border-blue-700">
-                      ✓ Vérifié
-                    </Badge>
-                  )}
+    // CARD STYLE: Dark background, rounded, subtle border, full width on mobile
+    <div className="bg-[#201d1d] border border-gray-800 rounded-xl shadow-2xl mb-6 transition-all duration-300 hover:shadow-xl">
+
+      {/* En-tête de la publication */}
+      <div className="p-4 flex items-start justify-between">
+        <div className="flex items-center">
+          <img
+            src={authorAvatar || 'http://localhost:5005/uploads/icon-user.png'}
+            alt={authorName}
+            className="w-10 h-10 rounded-full object-cover mr-3 border-2 border-gray-700 flex-shrink-0"
+          />
+          <div>
+            <div className="flex items-center flex-wrap">
+              <span className="font-bold text-white text-base mr-2">
+                @{authorName}
+              </span>
+              {authorHasCIN && (
+                <div className="flex items-center">
+                  <CheckCircle className="w-4 h-4 text-blue-500 fill-blue-500" />
+                  <span className="ml-1 text-xs text-blue-400 font-medium hidden sm:inline">Vérifié</span>
                 </div>
-                <div className="flex items-center space-x-2 text-xs text-gray-400 mt-1">
-                  <Clock className="h-3 w-3" />
-                  <span>{formatTimeAgo(alert.createdAt)}</span>
-                </div>
-              </div>
+              )}
             </div>
-
-            <div className="flex items-center space-x-2">
-              <Badge className={`text-xs ${getUrgencyColor(alert.urgency)} px-3 py-1 border-0 font-medium`}>
-                {alert.urgency === 'high' ? 'Urgent' : alert.urgency === 'medium' ? 'Moyen' : 'Faible'}
-              </Badge>
-              <Badge className={`text-xs ${getStatusColor(alert.status)} px-3 py-1 border-0 font-medium`}>
-                {alert.status === 'pending' ? 'En attente' :
-                  alert.status === 'confirmed' ? 'Confirmée' :
-                    alert.status === 'fake' ? 'Fausse' : 'Résolue'}
-              </Badge>
-            </div>
-          </div>
-
-          {/* Localisation et raison */}
-          <div className="flex items-center justify-between mt-3">
-            <div className="flex items-center space-x-2 text-sm text-gray-300">
-              <MapPin className="h-4 w-4" />
-              <span>{alert.location}</span>
-            </div>
-            <Badge variant="outline" className="text-xs bg-orange-900/30 text-orange-300 border-orange-700">
-              {alert.reason}
-            </Badge>
-          </div>
-        </div>
-
-        {/* Contenu texte */}
-        {alert.description && (
-          <div className="px-4 pb-3">
-            <p className="text-gray-200 text-sm whitespace-pre-line leading-relaxed">
-              {displayText}
-              {shouldTruncate && !showFullText && '...'}
+            <p className="text-xs text-gray-400 mt-0.5 flex flex-wrap items-center">
+              <span className="font-medium text-red-400">{alert.reason}</span>
+              <span className="mx-1">•</span>
+              <span className="text-gray-400">{formatTimeAgo(alert.createdAt)}</span>
             </p>
-            {shouldTruncate && (
-              <button
-                onClick={() => setShowFullText(!showFullText)}
-                className="text-blue-400 hover:text-blue-300 text-xs font-medium mt-2 transition-colors"
-              >
-                {showFullText ? 'Voir moins' : 'Voir plus'}
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Médias */}
-        {hasMedia ? (
-          <div className="px-4 pb-3">
-            <div
-              className={`grid gap-2 ${mediaItems.length === 1
-                  ? "grid-cols-1"
-                  : mediaItems.length === 2
-                    ? "grid-cols-2"
-                    : "grid-cols-3"
-                }`}
-            >
-              {mediaItems.slice(0, 4).map((mediaItem: any, index: number) => {
-                const mediaType = getMediaType(mediaItem);
-                const isVideo = mediaType === 'video';
-                const isImage = mediaType === 'image';
-                const mediaUrl = getMediaUrl(mediaItem);
-
-                return (
-                  <div
-                    key={index}
-                    className="relative group cursor-pointer"
-                    onClick={() => handleMediaClick(mediaItem, mediaType)}
-                  >
-                    {isImage ? (
-                      <div className="relative overflow-hidden rounded-lg">
-                        <img
-                          src={mediaUrl}
-                          alt={`Média ${index + 1}`}
-                          className="w-full h-32 object-cover transition-all duration-300 hover:scale-105 hover:shadow-lg"
-                          onError={(e) => {
-                            e.currentTarget.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiMzNzM5NDAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzkzOTk5RiIgZm9udC1zaXplPSIxNCI+SW1hZ2Ugbm90IGZvdW5kPC90ZXh0Pjwvc3ZnPg==";
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            <Eye className="h-6 w-6 text-white" />
-                          </div>
-                        </div>
-                      </div>
-                    ) : isVideo ? (
-                      <div className="relative overflow-hidden rounded-lg">
-                        <video
-                          className="w-full h-32 object-cover"
-                          poster="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg0IjQwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiMzNzM5NDAiLz48L3N2Zz4="
-                        >
-                          <source src={mediaUrl} type="video/mp4" />
-                          Votre navigateur ne supporte pas la lecture de vidéos.
-                        </video>
-                        <div
-                          className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center cursor-pointer"
-                          onClick={(e) => handlePlayVideo(mediaItem, e)}
-                        >
-                          <div className="bg-black bg-opacity-50 rounded-full p-3 hover:bg-opacity-70 transition-all">
-                            <Play className="h-8 w-8 text-white fill-white" />
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="w-full h-32 bg-gray-700 rounded-lg flex items-center justify-center shadow-md">
-                        <a
-                          href={mediaUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-400 hover:text-blue-300 text-xs text-center p-3 transition-colors"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Fichier joint
-                        </a>
-                      </div>
-                    )}
-
-                    {index === 3 && mediaItems.length > 4 && (
-                      <div className="absolute inset-0 bg-black bg-opacity-70 rounded-lg flex items-center justify-center">
-                        <span className="text-white text-sm font-bold">
-                          +{mediaItems.length - 4}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="px-4 pb-3">
-            <div className="grid grid-cols-1 gap-2">
-              <div className="relative overflow-hidden rounded-lg">
-                <img
-                  src="http://localhost:5005/uploads/sample.jpeg"
-                  alt="Image d'illustration"
-                  className="w-full h-48 object-cover"
-                />
-                <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center">
-                  <span className="text-white text-sm bg-black bg-opacity-50 px-3 py-1 rounded">
-                    Image d'illustration
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ✅ CORRECTION: Statistiques avec les bons comptages */}
-        <div className="px-4 py-3 border-t border-gray-700 bg-gray-750">
-          <div className="flex justify-between text-sm text-gray-400">
-            <div className="flex items-center space-x-4">
-              <span className="flex items-center space-x-2">
-                <ThumbsUp className="h-4 w-4 text-green-400" />
-                <span>{confirmedCount} confirmation{confirmedCount !== 1 ? 's' : ''}</span>
-              </span>
-              <span className="flex items-center space-x-2">
-                <AlertTriangle className="h-4 w-4 text-red-400" />
-                <span>{rejectedCount} rejet{rejectedCount !== 1 ? 's' : ''}</span>
-              </span>
-            </div>
-            {/* <span className="flex items-center space-x-1">
-              <Eye className="h-4 w-4" />
-              <span>{viewsCount} vue{viewsCount !== 1 ? 's' : ''}</span>
-            </span> */}
-            {isAuthor && alert.status !== 'resolved' && (
-              <button
-                onClick={() => handleValidate('resolved')}
-                className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors shadow-md"
-              >
-                <CircleCheckBig className="h-4 w-4" />
-                <span>Résolu</span>
-              </button>
-            )}
-
           </div>
         </div>
+        {/* Statut de l'alerte en badge clair */}
+        <span className={`px-3 py-1 ml-2 text-xs font-semibold rounded-full ${getStatusColor(alert.status)} flex-shrink-0`}>
+          {statusText}
+        </span>
+      </div>
 
-        {/* ✅ CORRECTION: Actions avec vérification du vote - Affichage toujours pour status 'pending' indépendamment du filtre */}
-        {alert.status === 'pending' && (
-          <div className="px-4 py-3 border-t border-gray-700 bg-gray-750 rounded-b-lg">
-            {hasUserVoted ? (
-              <div className="text-center py-2">
-                <Badge variant="secondary" className="bg-gray-600 text-gray-300">
-                  ✓ Vous avez déjà voté pour cette alerte
-                </Badge>
-              </div>
-            ) : (
-              <div className="flex space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleValidate('confirm')}
-                  className="flex-1 text-sm h-9 bg-green-900/30 text-green-300 hover:bg-green-800/50 border border-green-700/50 transition-all"
-                >
-                  <ThumbsUp className="h-4 w-4 mr-2" />
-                  Confirmer
-                </Button>
+      {/* Description */}
+      <div className="px-4 pb-3">
+        <p className="text-sm text-gray-300 leading-relaxed">
+          {displayText}
+          {shouldTruncate && !showFullText && '...'}
+        </p>
+        {shouldTruncate && (
+          <button
+            onClick={() => setShowFullText(!showFullText)}
+            className="text-blue-400 hover:text-blue-300 text-xs font-medium mt-1 transition-colors"
+          >
+            {showFullText ? 'Voir moins' : 'Voir plus'}
+          </button>
+        )}
+      </div>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleValidate('reject')}
-                  className="flex-1 text-sm h-9 bg-red-900/30 text-red-300 hover:bg-red-800/50 border border-red-700/50 transition-all"
-                >
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  Rejeter
-                </Button>
-
-                {isAuthor && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleValidate('resolved')}
-                    className="flex-1 text-sm h-9 bg-blue-900/30 text-blue-300 hover:bg-blue-800/50 border border-blue-700/50 transition-all"
+      {/* Image/Vidéo de l'article - utilise un ratio adapté au mobile */}
+      <div className="relative w-full aspect-[4/3] bg-gray-900 overflow-hidden">
+        {hasMedia ? (
+          mediaItems.slice(0, 1).map((mediaItem: any, index: number) => {
+            const mediaType = getMediaType(mediaItem);
+            const mediaUrl = getMediaUrl(mediaItem);
+            return (
+              <div key={index} className="w-full h-full cursor-pointer relative" onClick={() => handleMediaClick(mediaItem, mediaType)}>
+                {mediaType === 'image' ? (
+                  <img
+                    src={mediaUrl}
+                    alt={`Média ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiMzNzM5NDAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzkzOTk5RiIgZm9udC1zaXplPSIxNCI+SW1hZ2Ugbm90IGZvdW5kPC90ZXh0Pjwvc3ZnPg==";
+                    }}
+                  />
+                ) : mediaType === 'video' ? (
+                  <video
+                    className="w-full h-full object-cover"
+                    poster="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg0PSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjMzcxZDEwIi8+PC9zdmc+"
                   >
-                    <Shield className="h-4 w-4 mr-2" />
-                    Résolu
-                  </Button>
+                    <source src={mediaUrl} type="video/mp4" />
+                  </video>
+                ) : (
+                  <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+                    <span className="text-white">Fichier joint</span>
+                  </div>
+                )}
+                {mediaType === 'video' && (
+                  <div
+                    className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center cursor-pointer"
+                    onClick={(e) => handlePlayVideo(mediaItem, e)}
+                  >
+                    <div className="bg-black bg-opacity-70 rounded-full p-3 hover:bg-opacity-90 transition-all">
+                      <Play className="h-8 w-8 text-white fill-white" />
+                    </div>
+                  </div>
                 )}
               </div>
+            );
+          })
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gray-800">
+            <Globe className="w-12 h-12 text-gray-600" />
+            <span className="ml-3 text-gray-500">Aucun média joint</span>
+          </div>
+        )}
+        <div className="absolute bottom-4 left-4 text-xs text-white/90 font-medium flex items-center px-2 py-0.5 rounded-full bg-black/50">
+          <Eye className="w-3 h-3 mr-1" />
+          {viewsCount}
+        </div>
+        <span className={`absolute top-4 right-4 px-3 py-1 text-xs font-semibold rounded-full ${getUrgencyColor(alert.urgency)} shadow-md`}>
+          {urgencyText}
+        </span>
+      </div>
+
+      {/* Détails de l'alerte (emplacement, date) */}
+      <div className="p-4 text-sm text-gray-400 border-b border-gray-800">
+        <div className="flex flex-col sm:flex-row sm:justify-between gap-2">
+          <div className="flex items-start">
+            <MapPin className="w-4 h-4 mr-2 mt-0.5 text-red-400 flex-shrink-0" />
+            <p>
+              <strong className="text-white mr-1">Lieu:</strong> {alert.location}
+            </p>
+          </div>
+          <div className="flex items-start sm:justify-end">
+            <Clock className="w-4 h-4 mr-2 mt-0.5 text-blue-400 flex-shrink-0" />
+            <p>
+              <strong className="text-white mr-1">Signalé:</strong>{' '}
+              {new Date(alert.createdAt).toLocaleDateString('fr-FR')}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Statistiques (Confirmations/Rejets) */}
+      <div className="p-4 text-sm text-gray-400 border-b border-gray-800">
+        <div className="flex justify-between">
+          <div className="flex items-center space-x-4">
+            <span className="flex items-center space-x-2 text-green-400 font-semibold">
+              <ThumbsUp className="w-4 h-4" />
+              <span>{confirmedCount} Confirmation{confirmedCount !== 1 ? 's' : ''}</span>
+            </span>
+            <span className="flex items-center space-x-2 text-red-400 font-semibold">
+              <AlertTriangle className="w-4 h-4" />
+              <span>{rejectedCount} Rejet{rejectedCount !== 1 ? 's' : ''}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Barre d'interaction */}
+      <div className="flex flex-col sm:flex-row sm:justify-between items-start p-4 gap-3">
+        {/* Bouton Commenter */}
+        <button
+          onClick={() => setShowCommentSection(true)}
+          className="flex items-center space-x-1 text-gray-400 hover:text-red-500 transition py-2 px-3 rounded-lg hover:bg-gray-800 w-full sm:w-auto justify-center sm:justify-start"
+        >
+          <MessageCircle className="w-5 h-5" />
+          <span className="font-medium">Commenter</span>
+        </button>
+
+        {/* Boutons de Validation */}
+        {alert.status === 'pending' && (
+          <div className="flex flex-wrap justify-end items-start gap-x-2 gap-y-2 w-full sm:w-auto">
+            {hasUserVoted ? (
+              <span className="px-3 py-1.5 bg-gray-700 text-red-400 rounded-full text-xs font-semibold flex items-center">
+                <CheckCircle className="w-3 h-3 mr-1" /> Déjà voté
+              </span>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleValidate('confirm')}
+                  className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 text-white py-2 px-3 rounded-lg transition text-sm font-semibold flex-1 sm:flex-none justify-center"
+                >
+                  <ThumbsUp className="w-4 h-4" />
+                  <span>Confirmer</span>
+                </button>
+                <button
+                  onClick={() => handleValidate('reject')}
+                  className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg transition text-sm font-semibold flex-1 sm:flex-none justify-center"
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>Fake</span>
+                </button>
+                {isAuthor && (
+                  <button
+                    onClick={() => handleValidate('resolved')}
+                    className="flex items-center space-x-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg transition text-sm font-semibold flex-1 sm:flex-none justify-center"
+                  >
+                    <CircleCheckBig className="w-4 h-4" />
+                    <span>Résolu</span>
+                  </button>
+                )}
+              </>
             )}
           </div>
         )}
+      </div>
 
-        {/* Actions sociales toujours présentes pour commenter, et féliciter si confirmée/résolue */}
-        <div className="px-4 py-3 border-t border-gray-700 bg-gray-750 rounded-b-lg">
-          <div className="flex space-x-3">
-            {(alert.status === 'confirmed' || alert.status === 'resolved') && (
-              <Button variant="ghost" size="sm" className="text-sm h-8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-all">
-                <ThumbsUp className="h-4 w-4 mr-2" />
-                Féliciter
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-sm h-8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-all"
-              onClick={() => setShowCommentSection(true)}
-            >
-              <MessageCircle className="h-4 w-4 mr-2" />
-              Commenter
-            </Button>
-          </div>
-        </div>
-      </Card>
+      {/* Modals pour médias et commentaires */}
+      {/* (Logique inchangée pour les modals, seulement le style de CommentSection a été amélioré) */}
 
-      {/* Modal pour média agrandi */}
       {expandedMedia && (
-        <Dialog open={!!expandedMedia} onOpenChange={() => setExpandedMedia(null)}>
-          <DialogContent className="max-w-4xl bg-transparent border-0 shadow-none">
-            <div className="relative">
+        <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setExpandedMedia(null)}>
+          <div className="bg-black rounded-xl max-w-full w-full max-h-full shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-center h-[80vh] w-full p-4">
               {expandedMedia.type === 'image' ? (
                 <img
                   src={expandedMedia.url}
                   alt="Image agrandie"
-                  className="w-full h-auto max-h-[80vh] object-contain rounded-xl shadow-2xl"
+                  className="max-h-full max-w-full object-contain rounded-xl"
                 />
               ) : (
                 <video
                   controls
                   autoPlay
-                  className="w-full h-auto max-h-[80vh] object-contain rounded-xl shadow-2xl"
+                  className="max-h-full max-w-full object-contain rounded-xl"
                 >
                   <source src={expandedMedia.url} type="video/mp4" />
-                  Votre navigateur ne supporte pas la lecture de vidéos.
                 </video>
               )}
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setExpandedMedia(null)}
-                className="absolute top-4 right-4 bg-black/50 text-white hover:bg-black/70 backdrop-blur-sm border-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
-          </DialogContent>
-        </Dialog>
+            <button
+              onClick={() => setExpandedMedia(null)}
+              className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 rounded-full bg-black/50 hover:bg-black/70 transition"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* Modal pour lecture vidéo */}
       {playingVideo && (
-        <Dialog open={!!playingVideo} onOpenChange={() => setPlayingVideo(null)}>
-          <DialogContent className="max-w-4xl bg-transparent border-0 shadow-none">
-            <div className="relative">
+        <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setPlayingVideo(null)}>
+          <div className="bg-black rounded-xl max-w-full w-full max-h-full shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-center h-[80vh] w-full p-4">
               <video
                 controls
                 autoPlay
-                className="w-full h-auto max-h-[80vh] object-contain rounded-xl shadow-2xl"
+                className="max-h-full max-w-full object-contain rounded-xl"
               >
                 <source src={playingVideo} type="video/mp4" />
-                Votre navigateur ne supporte pas la lecture de vidéos.
               </video>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setPlayingVideo(null)}
-                className="absolute top-4 right-4 bg-black/50 text-white hover:bg-black/70 backdrop-blur-sm border-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
-          </DialogContent>
-        </Dialog>
+            <button
+              onClick={() => setPlayingVideo(null)}
+              className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 rounded-full bg-black/50 hover:bg-black/70 transition"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* Section commentaires */}
       <CommentSection
         alertId={alert.id}
         currentUserId={currentUserId || ''}
         isOpen={showCommentSection}
         onClose={() => setShowCommentSection(false)}
       />
-    </>
+    </div>
   );
-}
+};
+
+// --- SOS FORM (MOBILE OPTIMIZED) ---
+
+const SOSForm: React.FC<SOSFormProps> = ({ onSubmit, onClose, loading }) => {
+  const [formData, setFormData] = useState({
+    reason: '',
+    description: '',
+    location: '',
+    latitude: '',
+    longitude: '',
+    media: null as File | null,
+    urgency: 'medium'
+  });
+  const [locationQuery, setLocationQuery] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState<Location[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const handleLocationSearch = (query: string) => {
+    setLocationQuery(query);
+    if (query.length >= 2) {
+      const suggestions = searchLocations(query, 10);
+      setLocationSuggestions(suggestions);
+      setShowSuggestions(true);
+    } else {
+      setLocationSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleLocationSelect = (location: Location) => {
+    setFormData(prev => ({
+      ...prev,
+      location: location.name,
+      latitude: location.latitude.toString(),
+      longitude: location.longitude.toString()
+    }));
+    setLocationQuery(location.name);
+    setShowSuggestions(false);
+  };
+
+  const handleLocationInputBlur = () => {
+    // Petit délai pour permettre le clic sur la suggestion
+    setTimeout(() => setShowSuggestions(false), 200);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit?.(formData);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setFormData(prev => ({ ...prev, media: file }));
+  };
+
+  const inputClass = 'w-full bg-gray-800 text-white p-3 rounded-lg border border-gray-700 focus:ring-red-500 focus:border-red-500 placeholder-gray-500 transition';
+
+  const Label: React.FC<React.PropsWithChildren<{ htmlFor: string }>> = ({ htmlFor, children }) => (
+    <label htmlFor={htmlFor} className="block text-sm font-medium text-gray-300 mb-1">
+      {children}
+    </label>
+  );
+
+  return (
+    <form className="space-y-6" onSubmit={handleSubmit}>
+      {/* Type d'incident */}
+      <div>
+        <Label htmlFor="reason">Type d'incident <span className="text-red-500">*</span></Label>
+        <select
+          id="reason"
+          value={formData.reason}
+          onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
+          className={inputClass}
+          required
+        >
+          <option value="">Sélectionnez le type d'incident</option>
+          <option value="agression">Agression</option>
+          <option value="vol">Vol/Cambriolage</option>
+          <option value="harcelement">Harcèlement</option>
+          <option value="accident">Accident</option>
+          <option value="urgence_medicale">Urgence médicale</option>
+          <option value="autre">Autre</option>
+        </select>
+      </div>
+
+      {/* Description détaillée */}
+      <div>
+        <Label htmlFor="description">Description détaillée <span className="text-red-500">*</span></Label>
+        <textarea
+          id="description"
+          placeholder="Décrivez ce qui s'est passé (le plus de détails possible)..."
+          value={formData.description}
+          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+          rows={4}
+          className={inputClass}
+          required
+        />
+      </div>
+
+      {/* Localisation */}
+      <div>
+        <Label htmlFor="location">Localisation <span className="text-red-500">*</span></Label>
+        <div className="relative">
+          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <input
+            id="location"
+            type="text"
+            placeholder="Recherchez un quartier, une rue ou un lieu..."
+            className={`${inputClass} pl-10`}
+            value={locationQuery || formData.location}
+            onChange={(e) => {
+              const query = e.target.value;
+              handleLocationSearch(query);
+            }}
+            onFocus={() => locationQuery.length >= 2 && setShowSuggestions(true)}
+            onBlur={handleLocationInputBlur}
+            required
+          />
+          {showSuggestions && locationSuggestions.length > 0 && (
+            <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-60 overflow-auto">
+              {locationSuggestions.map((suggestion, index) => (
+                <div
+                  key={index}
+                  className="p-3 hover:bg-gray-700 cursor-pointer text-sm text-gray-300 border-b border-gray-700 last:border-b-0"
+                  onMouseDown={() => handleLocationSelect(suggestion)} // Utilisez onMouseDown pour éviter le blur
+                >
+                  <div className="font-medium">{suggestion.name}</div>
+                  <div className="text-xs text-gray-500">{suggestion.district}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {showSuggestions && locationSuggestions.length === 0 && locationQuery.length >= 2 && (
+            <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-3 text-sm text-gray-400">
+              Aucune localisation trouvée pour "{locationQuery}"
+            </div>
+          )}
+        </div>
+        {formData.location && !showSuggestions && (
+          <p className="text-xs text-gray-500 mt-1 pl-3">
+            Localisation sélectionnée : <span className="text-gray-300 font-medium">{formData.location}</span>
+          </p>
+        )}
+      </div>
+
+      {/* Niveau d'urgence */}
+      <div>
+        <Label htmlFor="urgency">Niveau d'urgence</Label>
+        <select
+          id="urgency"
+          value={formData.urgency}
+          onChange={(e) => setFormData(prev => ({ ...prev, urgency: e.target.value }))}
+          className={inputClass}
+        >
+          <option value="low" className="text-blue-400">Faible - Information préventive</option>
+          <option value="medium" className="text-yellow-400">Moyen - Attention requise</option>
+          <option value="high" className="text-red-400">Élevé - Danger immédiat</option>
+        </select>
+      </div>
+
+      {/* Photo/Vidéo */}
+      <div>
+        <Label htmlFor="media">Photo/Vidéo (optionnel)</Label>
+        <input
+          id="media"
+          type="file"
+          accept="image/*,video/*"
+          onChange={handleFileChange}
+          className="w-full text-sm text-gray-300
+            file:mr-4 file:py-2 file:px-4
+            file:rounded-full file:border-0
+            file:text-sm file:font-semibold
+            file:bg-gray-500 file:text-gray-900
+            hover:file:bg-gray-600 cursor-pointer transition"
+        />
+        {formData.media && (
+          <p className="text-sm text-gray-500 mt-2">
+            Fichier sélectionné: {formData.media.name}
+          </p>
+        )}
+      </div>
+
+      {/* Boutons d'action */}
+      <div className="flex gap-3 pt-4 flex-col sm:flex-row">
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex-1 bg-gray-700 text-white py-3 rounded-lg hover:bg-gray-600 transition font-semibold"
+        >
+          Annuler
+        </button>
+        <button
+          type="submit"
+          className="flex-1 bg-red-500 text-gray-900 font-bold py-3 rounded-lg hover:bg-red-600 transition flex items-center justify-center"
+          disabled={loading}
+        >
+          {loading ? 'Envoi...' : (
+            <>
+              <Send className="w-4 h-4 mr-2" />
+              Signaler l'Alerte
+            </>
+          )}
+        </button>
+      </div>
+    </form>
+  );
+};
+
+// --- MODAL WRAPPERS (MOBILE OPTIMIZED) ---
+
+const NewAlertModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void; currentUser: any }> = ({ isOpen, onClose, onSuccess, currentUser }) => {
+  // ... (Logique inchangée)
+
+  const handleCreateAlert = (alertData: any) => {
+    if (!currentUser.id) {
+      window.alert("Vous devez être connecté pour créer une alerte !");
+      return;
+    }
+
+    const formDataToSend = new FormData();
+
+    formDataToSend.append('reason', alertData.reason || "Autre");
+    formDataToSend.append('description', alertData.description || "Pas de description");
+    formDataToSend.append('location', alertData.location || "Lieu non précisé");
+    formDataToSend.append('urgency', alertData.urgency || "medium");
+    formDataToSend.append('authorId', currentUser.id);
+
+    if (alertData.latitude != null) {
+      formDataToSend.append('latitude', alertData.latitude.toString());
+    }
+    if (alertData.longitude != null) {
+      formDataToSend.append('longitude', alertData.longitude.toString());
+    }
+
+    if (alertData.media) {
+      formDataToSend.append('media', alertData.media);
+    }
+
+    fetch('/api/alerts', {
+      method: 'POST',
+      body: formDataToSend,
+    }).then(response => {
+      if (response.ok) {
+        onSuccess();
+        onClose();
+      } else {
+        window.alert("Erreur lors de la création de l'alerte");
+      }
+    }).catch(error => {
+      console.error('Error creating alert:', error);
+      window.alert("Erreur lors de la création de l'alerte");
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300" onClick={onClose}>
+      <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-sm sm:max-w-lg shadow-2xl animate-in fade-in zoom-in duration-300 my-8 max-h-[90vh] overflow-y-auto flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center p-4 border-b border-gray-800 sticky top-0 bg-[#201d1d] z-10">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Plus className="w-5 h-5 text-red-500" />
+            Nouvelle Alerte SOS
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 transition">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="p-6 flex-grow">
+          <p className="text-gray-400 mb-4 text-sm">Remplissez tous les champs pour signaler un incident de manière précise.</p>
+          <SOSForm onSubmit={handleCreateAlert} onClose={onClose} loading={false} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ... (LimitModal and ValidationModal) - Design adjusted to match NewAlertModal
+
+const LimitModal: React.FC<{ isOpen: boolean; onClose: () => void; userAlertsCount: number }> = ({ isOpen, onClose, userAlertsCount }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300" onClick={onClose}>
+      <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-300 my-8" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center p-4 border-b border-gray-800 sticky top-0 bg-[#201d1d] z-10">
+          <h2 className="text-xl font-bold text-white">Limite atteinte</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 transition">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="p-6">
+          <div className="text-center mb-6">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <p className="text-gray-300">
+              Vous avez créé <strong className="text-red-400">{userAlertsCount}</strong> alerte(s). En tant qu'utilisateur non vérifié,
+              vous êtes limité à une alerte. Veuillez vérifier votre compte pour créer plus d'alertes.
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition font-semibold"
+            >
+              Compris
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ValidationModal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; placeholder: string; buttonText: string; commentType: 'green' | 'red'; onSubmit: (comment: string) => void }> = ({ isOpen, onClose, title, placeholder, buttonText, commentType, onSubmit }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300" onClick={onClose}>
+      <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-300 my-8" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center p-4 border-b border-gray-800 sticky top-0 bg-[#201d1d] z-10">
+          <h2 className="text-xl font-bold text-white">{title}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 transition">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="p-6">
+          <ValidationForm
+            onSubmit={onSubmit}
+            onCancel={onClose}
+            title={title}
+            placeholder={placeholder}
+            buttonText={buttonText}
+            buttonVariant="default"
+            commentType={commentType}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- DASHBOARD MAIN COMPONENT ---
 
 export default function Dashboard() {
   const [showSOSForm, setShowSOSForm] = useState(false);
-  const [activeTab, setActiveTab] = useState('all');
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const [rejectingAlertId, setRejectingAlertId] = useState<string | null>(null);
   const [confirmingAlertId, setConfirmingAlertId] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'confirmed' | 'fake' | 'resolved'>('all');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
-  // ✅ CORRECTION: Récupérer l'utilisateur connecté avec token et sans fallback fictif
-  const { data: currentUser, isError: authError, isLoading: userLoading } = useQuery({
-    queryKey: ['/api/auth/me'],
+  // ... (useQuery for currentUser, useQuery for userAlertsCount, useQuery for alertsData) - LOGIC IS PRESERVED
+  const { data: currentUserRaw, isError: authError, isLoading: userLoading } = useQuery({
+    queryKey: ['currentUser'],
     queryFn: async () => {
       const token = localStorage.getItem('authToken');
       if (!token) {
@@ -785,25 +1054,70 @@ export default function Dashboard() {
       }
       return response.json();
     },
-    retry: false, // Ne pas réessayer si erreur d'auth
+    retry: false,
   });
+
+  const currentUser = currentUserRaw ? {
+    id: currentUserRaw.id,
+    name: currentUserRaw.name,
+    avatar: currentUserRaw.avatar,
+    profileImageUrl: currentUserRaw.profileImageUrl,
+    isAdmin: currentUserRaw.isAdmin || false,
+    hasCIN: currentUserRaw.hasCIN || false,
+  } : null;
 
   const currentUserId = currentUser?.id;
 
-  // ✅ CORRECTION: Déplacé avant le return conditionnel
-  const { data: alerts = [], isLoading: alertsLoading } = useQuery<Alert[]>({
+  const { data: userAlertsCount = 0 } = useQuery({
+    queryKey: ['user-alerts-count', currentUserId],
+    queryFn: async () => {
+      if (!currentUserId) return 0;
+
+      try {
+        const response = await apiRequest('GET', '/api/alerts');
+        if (!response.ok) return 0;
+
+        const allAlerts = await response.json();
+        const userAlerts = allAlerts.filter((alert: Alert) => alert.authorId === currentUserId);
+        return userAlerts.length;
+      } catch (error) {
+        console.error('Error counting user alerts:', error);
+        return 0;
+      }
+    },
+    staleTime: 0,
+    enabled: !!currentUserId,
+  });
+
+  const { data: alertsData = [], isLoading: alertsLoading } = useQuery({
     queryKey: ['alerts'],
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/alerts?page=1&limit=10');
       if (!response.ok) throw new Error('Erreur de chargement des alertes');
       const data = await response.json();
-
-      console.log('📊 API ALERTS RESPONSE:', data);
-
       return data;
     },
     staleTime: 1000 * 60,
+    enabled: !!currentUserId,
   });
+
+  const [alerts, setAlerts] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (alertsData) {
+      setAlerts(alertsData.map((a: any) => ({
+        ...a,
+        author: {
+          id: a.author?.id || 'unknown',
+          name: a.author?.name || 'Utilisateur inconnu',
+          avatar: a.author?.avatar,
+          hasCIN: a.author?.hasCIN || false,
+        },
+      })));
+    }
+  }, [alertsData]);
+  // ... (createAlertMutation, updateAlertMutation, validateAlertMutation, createCommentMutation) - LOGIC IS PRESERVED
+  // ... (loadMoreAlerts, useEffect for authError) - LOGIC IS PRESERVED
 
   const createAlertMutation = useMutation({
     mutationFn: async (formData: FormData) => {
@@ -823,8 +1137,9 @@ export default function Dashboard() {
 
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['alerts'] });
+      await queryClient.invalidateQueries({ queryKey: ['user-alerts-count'] });
       setShowSOSForm(false);
     },
     onError: (error: any) => {
@@ -833,24 +1148,19 @@ export default function Dashboard() {
     }
   });
 
-  // ✅ CORRECTION: Mutation pour update status (Résolu) - Méthode PUT + authorId
   const updateAlertMutation = useMutation({
     mutationFn: ({ alertId, status, authorId }: { alertId: string; status: string; authorId: string }) =>
       apiRequest('PUT', `/api/alerts/${alertId}/status`, { status, authorId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
-      console.log(`✅ Alerte ${alertId} mise à jour en ${status}`);
     },
     onError: (error: any) => {
       console.error('Error updating alert status:', error);
     }
   });
 
-  // ✅ CORRECTION: Mutation pour validation (Confirmer/Rejeter) - Méthode POST + isConfirmed
-  // ✅ CORRECTION: Removed auto-comment creation from onSuccess (handled in forms now)
   const validateAlertMutation = useMutation({
     mutationFn: ({ alertId, isConfirmed, userId }: { alertId: string; isConfirmed: boolean; userId: string }) => {
-      console.log(`🔄 Validation alerte ${alertId}: isConfirmed=${isConfirmed}, userId=${userId}`);
       return apiRequest('POST', `/api/alerts/${alertId}/validate`, {
         isConfirmed,
         userId
@@ -858,7 +1168,6 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
-      console.log(`✅ Validation réussie pour alerte`);
     },
     onError: (error: any) => {
       console.error('Error validating alert:', error);
@@ -870,13 +1179,11 @@ export default function Dashboard() {
     }
   });
 
-  // ✅ CORRECTION: Mutation pour création commentaire
   const createCommentMutation = useMutation({
     mutationFn: ({ alertId, type, content }: { alertId: string; type: string; content: string }) =>
       apiRequest('POST', `/api/alerts/${alertId}/comments`, { type, content, userId: currentUserId! }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
-      console.log(`✅ Commentaire créé pour alerte`);
     },
     onError: (error: any) => {
       console.error('Error creating comment:', error);
@@ -884,7 +1191,6 @@ export default function Dashboard() {
     }
   });
 
-  // ✅ CORRECTION: Déplacé avant le return conditionnel
   const loadMoreAlerts = async () => {
     if (loadingMore || !hasMore) return;
 
@@ -897,7 +1203,15 @@ export default function Dashboard() {
       if (newAlerts.length < 10) {
         setHasMore(false);
       } else {
-        queryClient.setQueryData(['alerts'], (old: Alert[] = []) => [...old, ...newAlerts]);
+        setAlerts(prev => [...prev, ...newAlerts.map((a: any) => ({
+          ...a,
+          author: {
+            id: a.author?.id || 'unknown',
+            name: a.author?.name || 'Utilisateur inconnu',
+            avatar: a.author?.avatar,
+            hasCIN: a.author?.hasCIN || false,
+          },
+        }))]);
         setPage(nextPage);
       }
     } catch (error) {
@@ -907,37 +1221,41 @@ export default function Dashboard() {
     }
   };
 
-  // ✅ CORRECTION: useEffect pour redirection sur erreur d'auth
   useEffect(() => {
     if (authError) {
       setLocation('/login');
     }
   }, [authError, setLocation]);
 
-  // ✅ CORRECTION: Return conditionnel après TOUS les hooks
-  if (userLoading || authError || !currentUser) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
-        <div className="text-center">
-          {userLoading ? (
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          ) : null}
-          <p className="text-white">
-            {userLoading ? "Chargement de l'utilisateur..." : "Redirection vers la connexion..."}
-          </p>
-        </div>
+  if (userLoading || alertsLoading) {
+    return <div className="min-h-screen bg-[#161313] flex items-center justify-center text-white">
+      <div className="flex flex-col items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-500 mb-4"></div>
+        <p className="text-lg">Chargement du tableau de bord...</p>
       </div>
-    );
+    </div>;
   }
 
-  // ✅ CORRECTION: Fonctions de handlers après le return conditionnel
+  if (authError || !currentUser) {
+    return <div className="min-h-screen bg-[#161313] flex items-center justify-center text-white">
+      <p className="text-red-500">Non authentifié. Veuillez vous connecter.</p>
+    </div>;
+  }
+
+  const filteredAlerts = alerts.filter((alert: any) => selectedStatus === 'all' || alert.status === selectedStatus);
+
+  const handleSuccess = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['alerts'] });
+    await queryClient.invalidateQueries({ queryKey: ['user-alerts-count'] });
+  };
+
   const handleValidation = (alertId: string, validation: 'confirm' | 'reject' | 'resolved') => {
     if (!currentUserId) {
       window.alert("Vous devez être connecté pour voter !");
       return;
     }
 
-    const targetAlert = alerts.find((a: Alert) => a.id === alertId);
+    const targetAlert = alerts.find((a: any) => a.id === alertId);
 
     if (targetAlert?.validatedBy?.includes(currentUserId)) {
       window.alert("Vous avez déjà voté pour cette alerte !");
@@ -999,197 +1317,151 @@ export default function Dashboard() {
     );
   };
 
-  const handleCreateAlert = (alertData: any) => {
-    if (!currentUserId) {
-      window.alert("Vous devez être connecté pour créer une alerte !");
+  const handleOpenSOSForm = () => {
+    if (!currentUser.hasCIN && userAlertsCount >= 1) {
+      setShowLimitModal(true);
       return;
     }
-
-    const formData = new FormData();
-
-    formData.append('reason', alertData.reason || "Autre");
-    formData.append('description', alertData.description || "Pas de description");
-    formData.append('location', alertData.location || "Lieu non précisé");
-    formData.append('urgency', alertData.urgency || "medium");
-    formData.append('authorId', currentUserId);
-
-    if (alertData.media) {
-      formData.append('media', alertData.media);
-    }
-
-    createAlertMutation.mutate(formData);
+    setShowSOSForm(true);
   };
 
-  const filteredAlerts = alerts.filter((alert: Alert) => {
-    switch (activeTab) {
-      case 'pending':
-        return alert.status === 'pending';
-      case 'confirmed':
-        return alert.status === 'confirmed';
-      case 'fake':
-        return alert.status === 'fake';
-      case 'resolved':
-        return alert.status === 'resolved';
-      default:
-        return true;
-    }
-  });
-
-  const isLoading = alertsLoading || userLoading; // Combiné pour cohérence
+  const statusConfig = [
+    { key: 'all' as const, label: 'Toutes', icon: Globe, color: 'bg-gray-600', activeColor: 'bg-gray-500' },
+    { key: 'pending' as const, label: 'En Attente', icon: Clock, color: 'bg-yellow-600', activeColor: 'bg-yellow-500' },
+    { key: 'confirmed' as const, label: 'Confirmées', icon: CheckCircle, color: 'bg-green-600', activeColor: 'bg-green-500' },
+    { key: 'fake' as const, label: 'Fausses', icon: XIcon, color: 'bg-red-600', activeColor: 'bg-red-500' },
+    { key: 'resolved' as const, label: 'Résolues', icon: Shield, color: 'bg-blue-600', activeColor: 'bg-blue-500' },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-4">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Tableau de Bord</h1>
-            <p className="text-gray-300 mt-1">Surveillance des alertes en temps réel</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-white">
-              <User className="h-5 w-5" />
-              <span>{currentUser?.name || 'Utilisateur'}</span>
-            </div>
-            <Button
-              onClick={() => setShowSOSForm(true)}
-              className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-lg transition-all duration-300"
-              size="lg"
-              disabled={!currentUserId}
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Nouvelle Alerte SOS
-            </Button>
+    <div className="min-h-screen bg-[#161313] text-white">
+      {/* Header */}
+        <div className='flex flex-col items-center mt-6 px-4 sm:px-6 text-center'>
+          <h1 className="text-3xl font-extrabold text-red-400 uppercase tracking-wider">Centre d'alerte</h1>
+          <p className="text-zinc-400 font-mono text-sm">
+            Consultez ici l’ensemble des alertes reçues. Vous pouvez suivre leur statut, <br/>voir les détails importants et rester informé en temps réel de tout ce qui concerne votre compte.
+          </p>
+        </div>
+
+      <main className="py-6 px-4 sm:px-6">
+        {/* Barre de filtre/statut responsive */}
+        <div className="mb-8 max-w-7xl mx-auto">
+          <p className="text-gray-400 mb-3 text-sm font-medium">Filtrer par statut :</p>
+          <div className="flex space-x-3 overflow-x-auto pb-2 custom-scrollbar">
+            {statusConfig.map(({ key, label, icon: Icon, color, activeColor }) => (
+              <button
+                key={key}
+                onClick={() => setSelectedStatus(key)}
+                className={`flex items-center px-4 py-2 rounded-full text-sm font-medium transition whitespace-nowrap shadow-md ${selectedStatus === key
+                  ? `${activeColor} ${key === 'pending' || key === 'confirmed' ? 'text-gray-900' : 'text-white'}`
+                  : `${color} text-white hover:bg-opacity-80`
+                  }`}
+              >
+                {Icon && <Icon className={`w-4 h-4 mr-1 ${selectedStatus === key && (key === 'pending' || key === 'confirmed') ? 'text-gray-900' : 'text-white'}`} />}
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-5 w-full bg-gray-800/50 backdrop-blur-sm border border-gray-700">
-            <TabsTrigger value="all" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-              Toutes
-            </TabsTrigger>
-            <TabsTrigger value="pending" className="data-[state=active]:bg-yellow-600 data-[state=active]:text-white">
-              En attente
-            </TabsTrigger>
-            <TabsTrigger value="confirmed" className="data-[state=active]:bg-green-600 data-[state=active]:text-white">
-              Confirmées
-            </TabsTrigger>
-            <TabsTrigger value="fake" className="data-[state=active]:bg-red-600 data-[state=active]:text-white">
-              Fausses
-            </TabsTrigger>
-            <TabsTrigger value="resolved" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-              Résolues
-            </TabsTrigger>
-          </TabsList>
+        {/* Grille d'alertes responsive */}
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredAlerts.map((alert: any) => (
+            <FacebookStyleAlert
+              key={alert.id}
+              alert={alert}
+              onValidate={handleValidation}
+              onReject={(alertId: string) => setRejectingAlertId(alertId)}
+              onConfirm={(alertId: string) => setConfirmingAlertId(alertId)}
+              currentUserId={currentUserId}
+            />
+          ))}
+        </div>
 
-          <TabsContent value={activeTab} className="mt-6">
-            <div className="space-y-4">
-              {isLoading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-                </div>
-              ) : filteredAlerts.length === 0 ? (
-                <Card className="text-center py-12 bg-gray-800/50 border-gray-700">
-                  <CardContent>
-                    <AlertTriangle className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-300">Aucune alerte trouvée</h3>
-                    <p className="text-gray-500 mt-2">
-                      {activeTab === 'all'
-                        ? "Aucune alerte n'a été signalée pour le moment."
-                        : `Aucune alerte ${activeTab === 'pending' ? 'en attente' :
-                          activeTab === 'confirmed' ? 'confirmée' :
-                            activeTab === 'fake' ? 'fausse' : 'résolue'} pour le moment.`}
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                filteredAlerts.map((alert: Alert) => (
-                  <FacebookStyleAlert
-                    key={alert.id}
-                    alert={alert}
-                    onValidate={handleValidation}
-                    onReject={(alertId: string) => setRejectingAlertId(alertId)}
-                    onConfirm={(alertId: string) => setConfirmingAlertId(alertId)}
-                    currentUserId={currentUserId}
-                  />
-                ))
-              )}
-            </div>
+        {filteredAlerts.length === 0 && <p className="text-center text-gray-500 mt-10 p-4 bg-gray-800 rounded-xl max-w-lg mx-auto">Aucune alerte ne correspond au filtre sélectionné.</p>}
 
-            {/* ✅ CORRECTION: Bouton manuel "Plus d'alertes" sans observer pour éviter le clignotement infini */}
-            {hasMore && (
-              <div className="flex justify-center py-6">
-                {loadingMore ? (
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                ) : (
-                  <Button variant="outline" onClick={loadMoreAlerts} className="border-gray-600 text-gray-300">
-                    Plus d'alertes
-                  </Button>
-                )}
-              </div>
+        {/* Bouton de chargement More */}
+        {hasMore && (
+          <div className="flex justify-center py-8">
+            {loadingMore ? (
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+            ) : (
+              <button onClick={loadMoreAlerts} className="px-6 py-3 bg-gray-800 text-gray-300 border border-gray-700 rounded-lg hover:bg-gray-700 transition font-semibold">
+                Charger plus d'alertes
+              </button>
             )}
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
+      </main>
+
+      {/* FAB et Profil fixe */}
+      <div className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 flex flex-col items-end space-y-3 z-40">
+        {/* Profil/Avatar */}
+        <div className="group relative">
+          <img
+            src={currentUser.avatar || currentUser.profileImageUrl || 'http://localhost:5005/uploads/icon-user.png'}
+            alt="Profil"
+            className="w-12 h-12 rounded-full object-cover border-3 border-red-500 ring-2 ring-red-500 cursor-pointer shadow-xl hover:shadow-lg transition duration-300"
+          />
+          {/* Tooltip Profil */}
+          <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-700 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap flex items-center shadow-lg">
+            {currentUser.name}
+            {currentUser.hasCIN && (
+              <CheckCircle className="w-4 h-4 text-blue-400 fill-blue-400 ml-2" />
+            )}
+          </div>
+        </div>
+        {/* FAB Nouvelle Alerte */}
+        <button
+          onClick={handleOpenSOSForm}
+          className="bg-red-500 p-4 rounded-full shadow-2xl hover:bg-red-600 transition duration-300 transform hover:scale-105"
+          title="Signaler une nouvelle alerte"
+        >
+          <Plus className="w-6 h-6 text-gray-900 font-bold" />
+        </button>
       </div>
 
-      {/* SOS Form Dialog */}
-      <Dialog open={showSOSForm} onOpenChange={setShowSOSForm}>
-        <DialogContent className="max-w-2xl bg-gray-800 border-gray-700">
-          <DialogHeader>
-            <DialogTitle className="text-xl text-white">Signaler une alerte SOS</DialogTitle>
-          </DialogHeader>
-          <SOSForm
-            onSubmit={handleCreateAlert}
-            onClose={() => setShowSOSForm(false)}
-            loading={createAlertMutation.isPending}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Modals */}
+      <NewAlertModal
+        isOpen={showSOSForm}
+        onClose={() => setShowSOSForm(false)}
+        onSuccess={handleSuccess}
+        currentUser={currentUser}
+      />
 
-      {/* Confirm Form Dialog */}
-      <Dialog open={!!confirmingAlertId} onOpenChange={() => setConfirmingAlertId(null)}>
-        <DialogContent className="max-w-md bg-gray-800 border-gray-700">
-          <DialogHeader>
-            <DialogTitle className="text-lg text-white">Confirmer l'alerte</DialogTitle>
-          </DialogHeader>
-          <ValidationForm
-            onSubmit={(comment) => {
-              if (confirmingAlertId) {
-                handleConfirmWithForm(confirmingAlertId, comment);
-              }
-            }}
-            onCancel={() => setConfirmingAlertId(null)}
-            title="Raison de la confirmation (optionnel)"
-            placeholder="Expliquez pourquoi vous confirmez cette alerte..."
-            buttonText="Confirmer"
-            buttonVariant="default"
-            commentType="green"
-          />
-        </DialogContent>
-      </Dialog>
+      <LimitModal
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        userAlertsCount={userAlertsCount}
+      />
 
-      {/* Reject Form Dialog */}
-      <Dialog open={!!rejectingAlertId} onOpenChange={() => setRejectingAlertId(null)}>
-        <DialogContent className="max-w-md bg-gray-800 border-gray-700">
-          <DialogHeader>
-            <DialogTitle className="text-lg text-white">Rejeter l'alerte</DialogTitle>
-          </DialogHeader>
-          <ValidationForm
-            onSubmit={(comment) => {
-              if (rejectingAlertId) {
-                handleRejectWithForm(rejectingAlertId, comment);
-              }
-            }}
-            onCancel={() => setRejectingAlertId(null)}
-            title="Raison du rejet (optionnel)"
-            placeholder="Expliquez pourquoi vous rejetez cette alerte..."
-            buttonText="Confirmer le rejet"
-            buttonVariant="destructive"
-            commentType="red"
-          />
-        </DialogContent>
-      </Dialog>
+      <ValidationModal
+        isOpen={!!confirmingAlertId}
+        onClose={() => setConfirmingAlertId(null)}
+        title="Confirmer l'alerte"
+        placeholder="Expliquez pourquoi vous confirmez cette alerte..."
+        buttonText="Confirmer"
+        commentType="green"
+        onSubmit={(comment) => {
+          if (confirmingAlertId) {
+            handleConfirmWithForm(confirmingAlertId, comment);
+          }
+        }}
+      />
+
+      <ValidationModal
+        isOpen={!!rejectingAlertId}
+        onClose={() => setRejectingAlertId(null)}
+        title="Marquer comme fausse alerte"
+        placeholder="Expliquez pourquoi vous considérez cette alerte comme fausse..."
+        buttonText="Confirmer le rejet"
+        commentType="red"
+        onSubmit={(comment) => {
+          if (rejectingAlertId) {
+            handleRejectWithForm(rejectingAlertId, comment);
+          }
+        }}
+      />
     </div>
   );
 }

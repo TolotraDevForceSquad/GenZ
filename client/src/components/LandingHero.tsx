@@ -9,102 +9,127 @@ interface LandingHeroProps {
 }
 
 export default function LandingHero({ onLogin, onRegister }: LandingHeroProps) {
+  // Définition de l'ombre néon jaune doré pour réutilisation
+  const neonGoldShadow = "shadow-[0_0_15px_rgba(251,191,36,0.5)]";
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
-      <div className="container mx-auto px-4 py-16">
-        {/* Hero Section */}
-        <div className="text-center mb-16">
-          <div className="flex justify-center mb-8">
-            <img src={genZLogo} alt="Gasy Iray" className="w-24 h-24 rounded-xl" />
+    // Conteneur principal: Fond noir très profond (maximise le contraste)
+    <div className="min-h-screen bg-gray-950 transition duration-500">
+      <div className="container mx-auto px-4 py-16 md:py-24 max-w-7xl">
+        
+        {/* Section Hero */}
+        <div className="text-center mb-16 md:mb-24">
+          
+          {/* Logo avec Glow Jaune Doré */}
+          <div className="flex justify-center mb-6 md:mb-10">
+            {/* Conteneur pour l'effet de glow autour du logo */}
+            {/* <div className={`p-1 rounded-3xl bg-gradient-to-br from-yellow-400/80 to-amber-600/80 ${neonGoldShadow}`}>
+              <img 
+                src={genZLogo} 
+                alt="Gasy Iray" 
+                className="w-20 h-20 md:w-28 md:h-28 rounded-3xl object-cover border-4 border-gray-950 transition-all duration-500 hover:scale-105" 
+              />
+            </div> */}
           </div>
           
-          <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-primary to-white bg-clip-text text-transparent">
-            Gasy Iray
+          {/* Titre Principal avec Dégradé Jaune Doré */}
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold mb-6 tracking-tight text-white">
+            <span className="block text-gray-100">Sécurité Communautaire</span>
+            {/* Dégradé Golden Yellow pour l'effet lumineux */}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-500">Gasy Hub</span>
           </h1>
           
-          <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Plateforme communautaire de sécurité. Signalez, validez et restez informés des alertes dans votre zone.
+          {/* Sous-titre */}
+          <p className="text-lg md:text-xl text-gray-300 mb-10 max-w-3xl mx-auto">
+            Plateforme de sécurité collaborative. <b>Signalez immédiatement</b>, validez les alertes et sécurisez votre quartier en temps réel.
           </p>
           
+          {/* Boutons CTA */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
-              className="text-lg px-8 py-6 h-auto"
-              onClick={() => window.location.href = '/demo'}
-              data-testid="button-demo-hero"
+            {/* Bouton Principal: Jaune Doré avec texte Noir (HAUTE VISIBILITÉ) */}
+            <Button
+              onClick={onRegister}
+              size="lg"
+              className={`text-base h-12 px-8 font-bold bg-yellow-400 hover:bg-yellow-500 text-black ${neonGoldShadow} shadow-yellow-400/50 transition transform hover:-translate-y-0.5`}
             >
-              Accéder à la démo
+              Créer un compte Gratuit
             </Button>
-            <Button 
-              variant="outline" 
-              size="lg" 
-              className="text-lg px-8 py-6 h-auto backdrop-blur-sm"
+            {/* Bouton Secondaire: Dark avec bordure Jaune Doré */}
+            <Button
               onClick={onLogin}
-              data-testid="button-login-hero"
+              size="lg"
+              variant="outline"
+              className="text-base h-12 px-8 font-semibold bg-gray-900 hover:bg-gray-800 border-yellow-400 text-yellow-400 hover:text-white transition"
             >
-              Connexion
+              J'ai déjà un compte
             </Button>
           </div>
         </div>
 
-        {/* Features Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          <Card className="hover-elevate">
-            <CardContent className="p-6 text-center">
-              <Shield className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Sécurité Vérifiée</h3>
-              <p className="text-sm text-muted-foreground">
-                Système de validation communautaire pour des alertes fiables
+        {/* Section Fonctionnalités (Responsive Grid) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 mb-16 md:mb-24">
+          
+          {/* Carte 1: Utilisateurs Vérifiés (Vert Émeraude) */}
+          <Card className={`transition duration-300 p-4 bg-gray-900 border-gray-800 shadow-xl hover:shadow-2xl hover:${neonGoldShadow} hover:border-yellow-400/50`}>
+            <CardContent className="p-4 md:p-6 text-center">
+              <Shield className="w-10 h-10 md:w-12 md:h-12 text-emerald-400 mx-auto mb-4 bg-emerald-500/20 p-2 rounded-xl" />
+              <h3 className="text-lg font-bold mb-2 text-white">Vérification CIN</h3>
+              <p className="text-sm text-gray-300">
+                Validation d'identité pour assurer la fiabilité des signalements.
               </p>
             </CardContent>
           </Card>
           
-          <Card className="hover-elevate">
-            <CardContent className="p-6 text-center">
-              <Users className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Communauté Active</h3>
-              <p className="text-sm text-muted-foreground">
-                Rejoignez une communauté engagée pour la sécurité de tous
+          {/* Carte 2: Communauté (Jaune Doré - Couleur principale) */}
+          <Card className={`transition duration-300 p-4 bg-gray-900 border-gray-800 shadow-xl hover:shadow-2xl hover:${neonGoldShadow} hover:border-yellow-400/50`}>
+            <CardContent className="p-4 md:p-6 text-center">
+              <Users className="w-10 h-10 md:w-12 md:h-12 text-yellow-400 mx-auto mb-4 bg-yellow-500/20 p-2 rounded-xl" />
+              <h3 className="text-lg font-bold mb-2 text-white">Communauté</h3>
+              <p className="text-sm text-gray-300">
+                Rejoignez une communauté engagée pour la sécurité de tous.
               </p>
             </CardContent>
           </Card>
           
-          <Card className="hover-elevate">
-            <CardContent className="p-6 text-center">
-              <MapPin className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Géolocalisation</h3>
-              <p className="text-sm text-muted-foreground">
-                Carte interactive des zones d'insécurité en temps réel
+          {/* Carte 3: Géolocalisation (Orange Ambre) */}
+          <Card className={`transition duration-300 p-4 bg-gray-900 border-gray-800 shadow-xl hover:shadow-2xl hover:${neonGoldShadow} hover:border-yellow-400/50`}>
+            <CardContent className="p-4 md:p-6 text-center">
+              <MapPin className="w-10 h-10 md:w-12 md:h-12 text-orange-400 mx-auto mb-4 bg-orange-500/20 p-2 rounded-xl" />
+              <h3 className="text-lg font-bold mb-2 text-white">Carte en Temps Réel</h3>
+              <p className="text-sm text-gray-300">
+                Visualisation interactive des alertes et des zones d'insécurité.
               </p>
             </CardContent>
           </Card>
           
-          <Card className="hover-elevate">
-            <CardContent className="p-6 text-center">
-              <AlertTriangle className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Alertes SOS</h3>
-              <p className="text-sm text-muted-foreground">
-                Signalement rapide avec validation automatique pour les utilisateurs vérifiés
+          {/* Carte 4: Alertes SOS (Rouge Rose) */}
+          <Card className={`transition duration-300 p-4 bg-gray-900 border-gray-800 shadow-xl hover:shadow-2xl hover:${neonGoldShadow} hover:border-yellow-400/50`}>
+            <CardContent className="p-4 md:p-6 text-center">
+              <AlertTriangle className="w-10 h-10 md:w-12 md:h-12 text-rose-400 mx-auto mb-4 bg-rose-500/20 p-2 rounded-xl" />
+              <h3 className="text-lg font-bold mb-2 text-white">Alertes SOS</h3>
+              <p className="text-sm text-gray-300">
+                Signalement ultra-rapide avec validation pour les utilisateurs vérifiés.
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* CTA Section */}
-        <div className="text-center">
-          <h2 className="text-3xl font-bold mb-4">Prêt à rejoindre la communauté ?</h2>
-          <p className="text-lg text-muted-foreground mb-8">
-            Commencez dès maintenant et contribuez à la sécurité de votre quartier
+        {/* CTA Section Final
+        <div className={`text-center p-8 md:p-12 bg-gray-900 rounded-2xl border border-yellow-400/50 shadow-[0_0_20px_rgba(251,191,36,0.6)]`}>
+          <h2 className="text-3xl sm:text-4xl font-extrabold mb-4 text-white">
+            Prêt à devenir un acteur de la sécurité ?
+          </h2>
+          <p className="text-lg text-gray-300 mb-8 max-w-xl mx-auto">
+            Rejoignez-nous et contribuez à faire de votre quartier un endroit plus sûr. Votre participation fait la différence.
           </p>
-          <Button 
-            size="lg" 
-            className="text-lg px-8 py-6 h-auto"
-            onClick={() => window.location.href = '/demo'}
-            data-testid="button-join-community"
+          <Button
+            onClick={onRegister}
+            size="xl"
+            className="h-14 px-10 text-xl font-bold bg-yellow-400 hover:bg-yellow-500 text-black shadow-xl shadow-yellow-400/50 transition transform hover:-translate-y-1"
           >
-            Découvrir la démo
+            S'inscrire Maintenant
           </Button>
-        </div>
+        </div> */}
       </div>
     </div>
   );

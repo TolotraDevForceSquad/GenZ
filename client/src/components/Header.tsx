@@ -24,7 +24,7 @@ export default function Header({ user, onLogout, onProfile, onSettings }: Header
         <div className="flex items-center gap-4">
           <img src={genZLogo} alt="Gasy Iray" className="w-10 h-10 rounded-lg" />
           <div>
-            <h1 className="text-xl font-bold text-foreground font-[family-name:var(--font-sans)]">Gasy Iray</h1>
+            <h1 className="text-xl font-bold text-foreground font-[family-name:var(--font-sans)]">Gasy Hub</h1>
             <p className="text-sm text-muted-foreground">Plateforme de Sécurité</p>
           </div>
         </div>
