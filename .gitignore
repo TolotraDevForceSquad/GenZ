@@ -4,3 +4,8 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+uploads/*.{png,jpg,jpeg,gif,svg,webp,mp4,avi,mov,mkv,webm}
+
+!uploads/sample.jpeg
+!uploads/icon-user.png
