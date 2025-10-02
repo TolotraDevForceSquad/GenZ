@@ -97,13 +97,13 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
   };
 
   // Styles du thème "High Contrast Gold"
-  const neonGoldShadow = "shadow-[0_0_15px_rgba(251,191,36,0.5)]";
+  const neonGoldShadow = "x";
 
   return (
     // Fond noir profond
     <div className="min-h-screen flex items-center justify-center px-4 py-8 lg:py-16 bg-gray-950">
       {/* Carte: Fond sombre avec bordure/ombre dorée */}
-      <Card className={`w-full max-w-xl bg-gray-900 border-gray-800 text-white shadow-2xl ${neonGoldShadow} transition duration-300 hover:shadow-[0_0_25px_rgba(251,191,36,0.7)]`}>
+      <Card className={`w-full max-w-xl bg-gray-900 border-gray-800 text-white shadow-2xl ${neonGoldShadow} transition duration-300`}>
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             {/* Logo avec glow */}
@@ -112,7 +112,7 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
             </div> */}
           </div>
           <CardTitle className="text-3xl font-extrabold text-white">
-            {mode === 'login' ? 'CONNEXION' : 'CRÉER UN COMPTE'}
+            {mode === 'login' ? 'Connexion' : 'Créer un compte'}
           </CardTitle>
           <CardDescription className="text-gray-300">
             {mode === 'login' 
