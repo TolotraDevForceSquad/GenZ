@@ -19,12 +19,38 @@ import {
   XIcon,
   Menu, // Ajout pour une potentielle navigation mobile future
   Globe, // Ajout pour la carte ou la localisation
+  ChevronDown,
+  MapPin as MapPinIcon,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useLocation } from 'wouter';
 import type { Alert } from '@shared/schema';
-import { searchLocations, Location } from './types/locationsData';
+
+const API_URL = window.location.origin;
+
+type Location = {
+  nom: string;
+  latitude: number;
+  longitude: number;
+};
+
+const provinces = [
+  "Antananarivo",
+  "Fianarantsoa",
+  "Toamasina",
+  "Mahajanga",
+  "Toliara",
+  "Antsiranana"
+];
+
+const searchLocations = (query: string, locations: any[]): any[] => {
+  if (!query.trim()) return [];
+  const lowerQuery = query.toLowerCase();
+  return locations.filter(location =>
+    location.localisation.toLowerCase().includes(lowerQuery)
+  ).slice(0, 10);
+};
 
 // --- UTILITIES ---
 
@@ -214,7 +240,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ alertId, currentUserId,
             comments.map((comment: any) => (
               <div key={comment.id} className="flex space-x-3">
                 <img
-                  src={comment.user?.avatar || 'http://localhost:5005/uploads/icon-user.png'}
+                  src={comment.user?.avatar || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
                   alt={comment.user?.name}
                   className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-700"
                 />
@@ -240,7 +266,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ alertId, currentUserId,
         {/* Comment Input - Fixed at bottom */}
         <form onSubmit={handleSubmit} className="p-4 border-t border-gray-800 flex items-center flex-shrink-0">
           <img
-            src={localStorage.getItem('userAvatar') || 'http://localhost:5005/uploads/icon-user.png'}
+            src={localStorage.getItem('userAvatar') || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
             alt="Avatar"
             className="w-8 h-8 rounded-full object-cover mr-3 border border-gray-700"
           />
@@ -261,7 +287,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({ alertId, currentUserId,
   );
 };
 
-// ... (Interface FacebookStyleAlertProps)
+interface FacebookStyleAlertProps {
+  alert: any;
+  onValidate: (alertId: string, validation: 'resolved') => void;
+  onReject: (alertId: string) => void;
+  onConfirm: (alertId: string) => void;
+  currentUserId: string;
+}
 
 const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValidate, onReject, onConfirm, currentUserId }) => {
   const [showFullText, setShowFullText] = useState(false);
@@ -269,8 +301,6 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
   const [showCommentSection, setShowCommentSection] = useState(false);
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const maxTextLength = 150;
-
-  // ... (getMediaUrl, getMediaType, getMediaItems, author extraction, counts extraction) - LOGIC IS PRESERVED
 
   const parseMediaData = (mediaData: any) => {
     if (!mediaData) return [];
@@ -291,16 +321,18 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
     if (!mediaItem) return "";
 
     if (mediaItem.url) {
-      return mediaItem.url.startsWith("http") ? mediaItem.url : `http://localhost:5005${mediaItem.url}`;
+      return mediaItem.url.startsWith("http")
+        ? mediaItem.url
+        : `${API_URL}${mediaItem.url}`;
     }
 
     if (mediaItem.filename) {
-      return `http://localhost:5005/uploads/${mediaItem.filename}`;
+      return `${API_URL}/uploads/${mediaItem.filename}`;
     }
 
     if (typeof mediaItem === "string") {
-      const cleanPath = mediaItem.replace(/^\/uploads\//i, '');
-      return `http://localhost:5005/uploads/${cleanPath}`;
+      const cleanPath = mediaItem.replace(/^\/uploads\//i, "");
+      return `${API_URL}/uploads/${cleanPath}`;
     }
 
     return "";
@@ -333,12 +365,14 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
     id: "unknown",
     name: "Utilisateur inconnu",
     avatar: "",
-    hasCIN: false
+    hasCIN: false,
+    region: ""
   };
 
   const authorName = author.name?.trim() || "Utilisateur inconnu";
   const authorAvatar = author.avatar || "";
   const authorHasCIN = author.hasCIN || false;
+  const authorRegion = author.region || "";
 
   const confirmedCount = typeof alert.confirmedCount === 'string'
     ? parseInt(alert.confirmedCount) || 0
@@ -430,7 +464,7 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
       <div className="p-4 flex items-start justify-between">
         <div className="flex items-center">
           <img
-            src={authorAvatar || 'http://localhost:5005/uploads/icon-user.png'}
+            src={authorAvatar || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
             alt={authorName}
             className="w-10 h-10 rounded-full object-cover mr-3 border-2 border-gray-700 flex-shrink-0"
           />
@@ -447,9 +481,15 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
               )}
             </div>
             <p className="text-xs text-gray-400 mt-0.5 flex flex-wrap items-center">
-              <span className="font-medium text-yellow-400">{alert.reason}</span>
+              <span className="font-medium text-yellow-400">{urgencyText}</span>
               <span className="mx-1">•</span>
               <span className="text-gray-400">{formatTimeAgo(alert.createdAt)}</span>
+              {authorRegion && (
+                <>
+                  <span className="mx-1">•</span>
+                  <span className="text-blue-400">{authorRegion}</span>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -523,12 +563,12 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
             <span className="ml-3 text-gray-500">Aucun média joint</span>
           </div>
         )}
-        <div className="absolute bottom-4 left-4 text-xs text-white/90 font-medium flex items-center px-2 py-0.5 rounded-full bg-black/50">
+        {/* <div className="absolute bottom-4 left-4 text-xs text-white/90 font-medium flex items-center px-2 py-0.5 rounded-full bg-black/50">
           <Eye className="w-3 h-3 mr-1" />
           {viewsCount}
-        </div>
+        </div> */}
         <span className={`absolute top-4 right-4 px-3 py-1 text-xs font-semibold rounded-full ${getUrgencyColor(alert.urgency)} shadow-md`}>
-          {urgencyText}
+          {alert.reason}
         </span>
       </div>
 
@@ -578,102 +618,50 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
           <span className="font-medium">Commenter</span>
         </button>
 
+
         {/* Boutons de Validation */}
-        {alert.status === 'pending' && (
-          <div className="flex flex-wrap justify-end items-start gap-x-2 gap-y-2 w-full sm:w-auto">
-            {hasUserVoted ? (
-              <span className="px-3 py-1.5 bg-gray-700 text-yellow-400 rounded-full text-xs font-semibold flex items-center">
-                <CheckCircle className="w-3 h-3 mr-1" /> Déjà voté
-              </span>
-            ) : (
-              <>
-                <button
-                  onClick={() => handleValidate('confirm')}
-                  className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 text-white py-2 px-3 rounded-lg transition text-sm font-semibold flex-1 sm:flex-none justify-center"
-                >
-                  <ThumbsUp className="w-4 h-4" />
-                  <span>Confirmer</span>
-                </button>
-                <button
-                  onClick={() => handleValidate('reject')}
-                  className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg transition text-sm font-semibold flex-1 sm:flex-none justify-center"
-                >
-                  <AlertTriangle className="w-4 h-4" />
-                  <span>Fake</span>
-                </button>
-                {isAuthor && (
-                  <button
-                    onClick={() => handleValidate('resolved')}
-                    className="flex items-center space-x-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg transition text-sm font-semibold flex-1 sm:flex-none justify-center"
-                  >
-                    <CircleCheckBig className="w-4 h-4" />
-                    <span>Résolu</span>
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Modals pour médias et commentaires */}
-      {/* (Logique inchangée pour les modals, seulement le style de CommentSection a été amélioré) */}
-
-      {expandedMedia && (
-        <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setExpandedMedia(null)}>
-          <div className="bg-black rounded-xl max-w-full w-full max-h-full shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-center h-[80vh] w-full p-4">
-              {expandedMedia.type === 'image' ? (
-                <img
-                  src={expandedMedia.url}
-                  alt="Image agrandie"
-                  className="max-h-full max-w-full object-contain rounded-xl"
-                />
+        <div className="flex flex-wrap justify-end items-start gap-x-2 gap-y-2 w-full sm:w-auto">
+          {alert.status === 'pending' && (
+            <>
+              {hasUserVoted ? (
+                <span className="px-3 py-1.5 bg-gray-700 text-yellow-400 rounded-full text-xs font-semibold flex items-center">
+                  <CheckCircle className="w-3 h-3 mr-1" /> Déjà voté
+                </span>
               ) : (
-                <video
-                  controls
-                  autoPlay
-                  className="max-h-full max-w-full object-contain rounded-xl"
-                >
-                  <source src={expandedMedia.url} type="video/mp4" />
-                </video>
+                <>
+                  <button
+                    onClick={() => handleValidate('confirm')}
+                    className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 text-white py-2 px-3 rounded-lg transition text-sm font-semibold flex-1 sm:flex-none justify-center"
+                  >
+                    <ThumbsUp className="w-4 h-4" />
+                    <span>Confirmer</span>
+                  </button>
+                  <button
+                    onClick={() => handleValidate('reject')}
+                    className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg transition text-sm font-semibold flex-1 sm:flex-none justify-center"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>Fausse</span>
+                  </button>
+                </>
               )}
-            </div>
+            </>
+          )}
+          {isAuthor && alert.status !== 'resolved' && (
             <button
-              onClick={() => setExpandedMedia(null)}
-              className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 rounded-full bg-black/50 hover:bg-black/70 transition"
+              onClick={() => handleValidate('resolved')}
+              className="flex items-center space-x-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg transition text-sm font-semibold w-full sm:w-auto justify-center sm:justify-start"
             >
-              <X className="w-6 h-6" />
+              <Shield className="w-4 h-4" />
+              <span>Résolu</span>
             </button>
-          </div>
+          )}
         </div>
-      )}
-
-      {playingVideo && (
-        <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setPlayingVideo(null)}>
-          <div className="bg-black rounded-xl max-w-full w-full max-h-full shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-center h-[80vh] w-full p-4">
-              <video
-                controls
-                autoPlay
-                className="max-h-full max-w-full object-contain rounded-xl"
-              >
-                <source src={playingVideo} type="video/mp4" />
-              </video>
-            </div>
-            <button
-              onClick={() => setPlayingVideo(null)}
-              className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 rounded-full bg-black/50 hover:bg-black/70 transition"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-      )}
+      </div>
 
       <CommentSection
         alertId={alert.id}
-        currentUserId={currentUserId || ''}
+        currentUserId={currentUserId}
         isOpen={showCommentSection}
         onClose={() => setShowCommentSection(false)}
       />
@@ -681,53 +669,43 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
   );
 };
 
-// --- SOS FORM (MOBILE OPTIMIZED) ---
-
-const SOSForm: React.FC<SOSFormProps> = ({ onSubmit, onClose, loading }) => {
+const SOSForm: React.FC<{
+  onSubmit: (data: any) => void;
+  onClose: () => void;
+  loading: boolean;
+  currentUser: any
+}> = ({ onSubmit, onClose, loading, currentUser }) => {
   const [formData, setFormData] = useState({
     reason: '',
     description: '',
     location: '',
-    latitude: '',
-    longitude: '',
+    urgency: 'medium' as const,
     media: null as File | null,
-    urgency: 'medium'
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
+    region: '' as string, // Nouveau champ pour stocker la région automatiquement
   });
-  const [locationQuery, setLocationQuery] = useState('');
-  const [locationSuggestions, setLocationSuggestions] = useState<Location[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const handleLocationSearch = (query: string) => {
-    setLocationQuery(query);
-    if (query.length >= 2) {
-      const suggestions = searchLocations(query, 10);
-      setLocationSuggestions(suggestions);
-      setShowSuggestions(true);
-    } else {
-      setLocationSuggestions([]);
-      setShowSuggestions(false);
-    }
-  };
+  const [allLocations, setAllLocations] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
 
-  const handleLocationSelect = (location: Location) => {
-    setFormData(prev => ({
-      ...prev,
-      location: location.name,
-      latitude: location.latitude.toString(),
-      longitude: location.longitude.toString()
-    }));
-    setLocationQuery(location.name);
-    setShowSuggestions(false);
-  };
+  // Charger toutes les localités au montage du composant
+  useEffect(() => {
+    const loadAllLocations = async () => {
+      try {
+        const madagascarData = await import('./types/madagascars.json');
+        setAllLocations(madagascarData.default || madagascarData);
+      } catch (error) {
+        console.error('Erreur lors du chargement des données de localisation:', error);
+        setAllLocations([]);
+      }
+    };
 
-  const handleLocationInputBlur = () => {
-    // Petit délai pour permettre le clic sur la suggestion
-    setTimeout(() => setShowSuggestions(false), 200);
-  };
+    loadAllLocations();
+  }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit?.(formData);
+  const handleChange = (field: string, value: string | number) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -735,19 +713,39 @@ const SOSForm: React.FC<SOSFormProps> = ({ onSubmit, onClose, loading }) => {
     setFormData(prev => ({ ...prev, media: file }));
   };
 
-  const inputClass = 'w-full bg-gray-800 text-white p-3 rounded-lg border border-gray-700 focus:ring-yellow-500 focus:border-yellow-500 placeholder-gray-500 transition';
+  const handleLocationChange = (value: string) => {
+    handleChange('location', value);
+    const newSuggestions = searchLocations(value, allLocations);
+    setSuggestions(newSuggestions);
+  };
 
-  const Label: React.FC<React.PropsWithChildren<{ htmlFor: string }>> = ({ htmlFor, children }) => (
-    <label htmlFor={htmlFor} className="block text-sm font-medium text-gray-300 mb-1">
-      {children}
-    </label>
-  );
+  const selectLocation = (location: any) => {
+    setFormData(prev => ({
+      ...prev,
+      location: location.localisation,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      region: location.region // Remplir automatiquement la région
+    }));
+    setSuggestions([]);
+  };
+
+  const handleLocationBlur = () => {
+    setTimeout(() => setSuggestions([]), 200);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const inputClass = "w-full bg-gray-800 border border-gray-700 text-white placeholder-gray-500 p-3 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 transition";
 
   return (
-    <form className="space-y-6" onSubmit={handleSubmit}>
-      {/* Type d'incident */}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Raison - OPTIONS MODIFIÉES */}
       <div>
-        <Label htmlFor="reason">Type d'incident <span className="text-red-500">*</span></Label>
+        <label htmlFor="reason" className="block text-sm font-medium text-gray-300 mb-2">Type d'incident</label>
         <select
           id="reason"
           value={formData.reason}
@@ -755,79 +753,78 @@ const SOSForm: React.FC<SOSFormProps> = ({ onSubmit, onClose, loading }) => {
           className={inputClass}
           required
         >
-          <option value="">Sélectionnez le type d'incident</option>
-          <option value="agression">Agression</option>
-          <option value="vol">Vol/Cambriolage</option>
-          <option value="harcelement">Harcèlement</option>
-          <option value="accident">Accident</option>
-          <option value="urgence_medicale">Urgence médicale</option>
+          <option value="">Sélectionnez un type</option>
+          <option value="Agression">Agression</option>
+          <option value="Vol/Cambriolage">Vol/Cambriolage</option>
+          <option value="Harcelement">Harcèlement</option>
+          <option value="Accident">Accident</option>
+          <option value="Urgence medicale">Urgence médicale</option>
           <option value="autre">Autre</option>
         </select>
       </div>
 
-      {/* Description détaillée */}
+      {/* Description */}
       <div>
-        <Label htmlFor="description">Description détaillée <span className="text-red-500">*</span></Label>
+        <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">Description détaillée</label>
         <textarea
           id="description"
-          placeholder="Décrivez ce qui s'est passé (le plus de détails possible)..."
           value={formData.description}
           onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-          rows={4}
+          placeholder="Décrivez l'incident en détail..."
           className={inputClass}
+          rows={4}
           required
         />
       </div>
 
-      {/* Localisation */}
-      <div>
-        <Label htmlFor="location">Localisation <span className="text-red-500">*</span></Label>
+      {/* Localisation - MODIFIÉE pour utiliser madagascars.json */}
+      <div className="space-y-2 relative">
+        <label htmlFor="location" className="block text-sm font-medium text-gray-300">Localisation</label>
         <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-yellow-500" />
+          <MapPinIcon className="absolute left-3 top-4 h-4 w-4 text-gray-500" />
           <input
             id="location"
             type="text"
-            placeholder="Recherchez un quartier, une rue ou un lieu..."
+            autoComplete="off"
+            placeholder="Recherchez votre quartier/localité"
             className={`${inputClass} pl-10`}
-            value={locationQuery || formData.location}
-            onChange={(e) => {
-              const query = e.target.value;
-              handleLocationSearch(query);
-            }}
-            onFocus={() => locationQuery.length >= 2 && setShowSuggestions(true)}
-            onBlur={handleLocationInputBlur}
-            required
+            value={formData.location}
+            onChange={(e) => handleLocationChange(e.target.value)}
+            onBlur={handleLocationBlur}
           />
-          {showSuggestions && locationSuggestions.length > 0 && (
-            <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-60 overflow-auto">
-              {locationSuggestions.map((suggestion, index) => (
-                <div
-                  key={index}
-                  className="p-3 hover:bg-gray-700 cursor-pointer text-sm text-gray-300 border-b border-gray-700 last:border-b-0"
-                  onMouseDown={() => handleLocationSelect(suggestion)} // Utilisez onMouseDown pour éviter le blur
-                >
-                  <div className="font-medium">{suggestion.name}</div>
-                  <div className="text-xs text-gray-500">{suggestion.district}</div>
-                </div>
-              ))}
-            </div>
-          )}
-          {showSuggestions && locationSuggestions.length === 0 && locationQuery.length >= 2 && (
-            <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-3 text-sm text-gray-400">
-              Aucune localisation trouvée pour "{locationQuery}"
-            </div>
-          )}
         </div>
-        {formData.location && !showSuggestions && (
-          <p className="text-xs text-gray-500 mt-1 pl-3">
-            Localisation sélectionnée : <span className="text-gray-300 font-medium">{formData.location}</span>
-          </p>
+        {suggestions.length > 0 && formData.location && (
+          <ul className="absolute z-50 w-full bg-gray-700 border border-yellow-400/50 rounded-md shadow-lg mt-1 max-h-60 overflow-auto">
+            {suggestions.map((location, index) => (
+              <li
+                key={index}
+                onClick={() => selectLocation(location)}
+                className="p-3 cursor-pointer hover:bg-yellow-400 hover:text-black text-sm border-b border-gray-600 last:border-b-0"
+              >
+                <div className="font-medium text-white hover:text-black">{location.localisation}</div>
+                <div className="text-xs text-gray-400 hover:text-black">
+                  {location.region} • Lat: {location.latitude}, Lng: {location.longitude}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-xs text-gray-500">
+          Recherchez votre quartier/localité dans Madagascar ({suggestions.length} résultats)
+        </p>
+
+        {/* Affichage de la région sélectionnée automatiquement */}
+        {formData.region && (
+          <div className="mt-2 p-2 bg-gray-800 rounded border border-gray-700">
+            <p className="text-xs text-gray-400">Région détectée:</p>
+            <p className="text-sm text-yellow-400 font-medium">{formData.region}</p>
+          </div>
         )}
       </div>
 
-      {/* Niveau d'urgence */}
+      {/* Urgence */}
       <div>
-        <Label htmlFor="urgency">Niveau d'urgence</Label>
+        <label htmlFor="urgency" className="block text-sm font-medium text-gray-300 mb-2">Niveau d'urgence</label>
         <select
           id="urgency"
           value={formData.urgency}
@@ -842,7 +839,7 @@ const SOSForm: React.FC<SOSFormProps> = ({ onSubmit, onClose, loading }) => {
 
       {/* Photo/Vidéo */}
       <div>
-        <Label htmlFor="media">Photo/Vidéo (optionnel)</Label>
+        <label htmlFor="media" className="block text-sm font-medium text-gray-300 mb-2">Photo/Vidéo (optionnel)</label>
         <input
           id="media"
           type="file"
@@ -891,8 +888,6 @@ const SOSForm: React.FC<SOSFormProps> = ({ onSubmit, onClose, loading }) => {
 // --- MODAL WRAPPERS (MOBILE OPTIMIZED) ---
 
 const NewAlertModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void; currentUser: any }> = ({ isOpen, onClose, onSuccess, currentUser }) => {
-  // ... (Logique inchangée)
-
   const handleCreateAlert = (alertData: any) => {
     if (!currentUser.id) {
       window.alert("Vous devez être connecté pour créer une alerte !");
@@ -906,6 +901,7 @@ const NewAlertModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess:
     formDataToSend.append('location', alertData.location || "Lieu non précisé");
     formDataToSend.append('urgency', alertData.urgency || "medium");
     formDataToSend.append('authorId', currentUser.id);
+    formDataToSend.append('region', alertData.region || ""); // Ajouter la région automatique
 
     if (alertData.latitude != null) {
       formDataToSend.append('latitude', alertData.latitude.toString());
@@ -950,14 +946,12 @@ const NewAlertModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess:
         </div>
         <div className="p-6 flex-grow">
           <p className="text-gray-400 mb-4 text-sm">Remplissez tous les champs pour signaler un incident de manière précise.</p>
-          <SOSForm onSubmit={handleCreateAlert} onClose={onClose} loading={false} />
+          <SOSForm onSubmit={handleCreateAlert} onClose={onClose} loading={false} currentUser={currentUser} />
         </div>
       </div>
     </div>
   );
 };
-
-// ... (LimitModal and ValidationModal) - Design adjusted to match NewAlertModal
 
 const LimitModal: React.FC<{ isOpen: boolean; onClose: () => void; userAlertsCount: number }> = ({ isOpen, onClose, userAlertsCount }) => {
   if (!isOpen) return null;
@@ -1029,13 +1023,13 @@ export default function Dashboard() {
   const [rejectingAlertId, setRejectingAlertId] = useState<string | null>(null);
   const [confirmingAlertId, setConfirmingAlertId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'confirmed' | 'fake' | 'resolved'>('all');
+  const [selectedRegion, setSelectedRegion] = useState<string>('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
-  // ... (useQuery for currentUser, useQuery for userAlertsCount, useQuery for alertsData) - LOGIC IS PRESERVED
   const { data: currentUserRaw, isError: authError, isLoading: userLoading } = useQuery({
     queryKey: ['currentUser'],
     queryFn: async () => {
@@ -1064,9 +1058,11 @@ export default function Dashboard() {
     profileImageUrl: currentUserRaw.profileImageUrl,
     isAdmin: currentUserRaw.isAdmin || false,
     hasCIN: currentUserRaw.hasCIN || false,
+    region: currentUserRaw.region || '',
   } : null;
 
   const currentUserId = currentUser?.id;
+  const currentUserRegion = currentUserRaw?.region || '';
 
   const { data: userAlertsCount = 0 } = useQuery({
     queryKey: ['user-alerts-count', currentUserId],
@@ -1112,12 +1108,15 @@ export default function Dashboard() {
           name: a.author?.name || 'Utilisateur inconnu',
           avatar: a.author?.avatar,
           hasCIN: a.author?.hasCIN || false,
+          region: a.author?.region || '',
         },
       })));
+
+      if (alertsData.length < 10) {
+        setHasMore(false);
+      }
     }
   }, [alertsData]);
-  // ... (createAlertMutation, updateAlertMutation, validateAlertMutation, createCommentMutation) - LOGIC IS PRESERVED
-  // ... (loadMoreAlerts, useEffect for authError) - LOGIC IS PRESERVED
 
   const createAlertMutation = useMutation({
     mutationFn: async (formData: FormData) => {
@@ -1210,6 +1209,7 @@ export default function Dashboard() {
             name: a.author?.name || 'Utilisateur inconnu',
             avatar: a.author?.avatar,
             hasCIN: a.author?.hasCIN || false,
+            region: a.author?.region || '',
           },
         }))]);
         setPage(nextPage);
@@ -1242,7 +1242,12 @@ export default function Dashboard() {
     </div>;
   }
 
-  const filteredAlerts = alerts.filter((alert: any) => selectedStatus === 'all' || alert.status === selectedStatus);
+  const filteredAlerts = alerts.filter((alert: any) => {
+    const statusMatch = selectedStatus === 'all' || alert.status === selectedStatus;
+    const provinceMatch = !selectedRegion ||
+      (alert.region && alert.region.startsWith(selectedRegion + " /"));
+    return statusMatch && provinceMatch;
+  });
 
   const handleSuccess = async () => {
     await queryClient.invalidateQueries({ queryKey: ['alerts'] });
@@ -1257,7 +1262,7 @@ export default function Dashboard() {
 
     const targetAlert = alerts.find((a: any) => a.id === alertId);
 
-    if (targetAlert?.validatedBy?.includes(currentUserId)) {
+    if (validation !== 'resolved' && targetAlert?.validatedBy?.includes(currentUserId)) {
       window.alert("Vous avez déjà voté pour cette alerte !");
       return;
     }
@@ -1336,36 +1341,68 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#161313] text-white">
       {/* Header */}
-        <div className='flex flex-col items-center mt-6 px-4 sm:px-6 text-center'>
-          <h1 className="text-3xl font-extrabold text-yellow-400 tracking-wider">Centre d'alerte</h1>
-          <p className="text-zinc-400 font-mono text-sm">
-            Consultez ici l’ensemble des alertes reçues. Vous pouvez suivre leur statut, <br/>voir les détails importants et rester informé en temps réel de tout ce qui concerne votre compte.
-          </p>
-        </div>
+      <div className='flex flex-col items-center  px-4 sm:px-6 text-center'>
+        <h1 className="text-3xl font-extrabold text-yellow-400 tracking-wider mt-6">Centre d'alerte</h1>
+        <p className="text-zinc-400 font-mono text-sm">
+          Consultez ici l’ensemble des alertes reçues. Vous pouvez suivre leur statut, <br />voir les détails importants et rester informé en temps réel de tout ce qui concerne votre compte.
+        </p>
+      </div>
 
       <main className="py-6 px-4 sm:px-6">
         {/* Barre de filtre/statut responsive */}
         <div className="mb-8 max-w-7xl mx-auto">
-          <p className="text-gray-400 mb-3 text-sm font-medium">Filtrer par statut :</p>
-          <div className="flex space-x-3 overflow-x-auto pb-2 custom-scrollbar">
-            {statusConfig.map(({ key, label, icon: Icon, color, activeColor }) => (
-              <button
-                key={key}
-                onClick={() => setSelectedStatus(key)}
-                className={`flex items-center px-4 py-2 rounded-full text-sm font-medium transition whitespace-nowrap shadow-md ${selectedStatus === key
-                  ? `${activeColor} ${key === 'pending' || key === 'confirmed' ? 'text-gray-900' : 'text-white'}`
-                  : `${color} text-white hover:bg-opacity-80`
-                  }`}
-              >
-                {Icon && <Icon className={`w-4 h-4 mr-1 ${selectedStatus === key && (key === 'pending' || key === 'confirmed') ? 'text-gray-900' : 'text-white'}`} />}
-                {label}
-              </button>
-            ))}
+          <p className="text-gray-400 mb-3 text-sm font-medium">Filtrer par :</p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 pb-2">
+            {/* Filtre Province (à gauche) */}
+            <div className="relative w-full sm:w-auto">
+              <div tabIndex={0} className="relative group">
+                {/* Bouton d'affichage sélection */}
+                <div className="w-full flex items-center justify-between px-4 py-2 bg-gray-800 border border-gray-700 rounded-full text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-yellow-500 transition">
+                  <span>{selectedRegion || "Toutes les provinces"}</span>
+                  <ChevronDown className="w-4 h-4 ml-2 text-gray-500 group-focus:rotate-180 transition-transform" />
+                </div>
+
+                {/* Dropdown */}
+                <div className="absolute z-50 left-0 mt-1 w-64 bg-gray-800 border border-yellow-400/50 shadow-md max-h-60 overflow-auto opacity-0 invisible group-focus:visible group-focus:opacity-100 transition-all">
+                  {provinces.map((province) => (
+                    <div
+                      key={province}
+                      onClick={() => setSelectedRegion(province)}
+                      className="w-full px-4 py-2 cursor-pointer hover:bg-yellow-400 hover:text-black text-sm transition-colors"
+                    >
+                      {province}
+                    </div>
+                  ))}
+                  <div
+                    onClick={() => setSelectedRegion('')}
+                    className="w-full px-4 py-2 cursor-pointer hover:bg-yellow-400 hover:text-black text-sm transition-colors"
+                  >
+                    Toutes les provinces
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Filtres Statut (après la région) */}
+            <div className="flex space-x-3 overflow-x-auto">
+              {statusConfig.map(({ key, label, icon: Icon, color, activeColor }) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedStatus(key)}
+                  className={`flex items-center px-4 py-2 rounded-full text-sm font-medium transition whitespace-nowrap shadow-md ${selectedStatus === key
+                    ? `${activeColor} ${key === 'pending' || key === 'confirmed' ? 'text-gray-900' : 'text-white'}`
+                    : `${color} text-white hover:bg-opacity-80`
+                    }`}
+                >
+                  {Icon && <Icon className={`w-4 h-4 mr-1 ${selectedStatus === key && (key === 'pending' || key === 'confirmed') ? 'text-gray-900' : 'text-white'}`} />}
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Grille d'alertes responsive */}
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-6">
           {filteredAlerts.map((alert: any) => (
             <FacebookStyleAlert
               key={alert.id}
@@ -1399,7 +1436,7 @@ export default function Dashboard() {
         {/* Profil/Avatar */}
         <div className="group relative">
           <img
-            src={currentUser.avatar || currentUser.profileImageUrl || 'http://localhost:5005/uploads/icon-user.png'}
+            src={currentUser.avatar || currentUser.profileImageUrl || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
             alt="Profil"
             className="w-12 h-12 rounded-full object-cover border-3 border-yellow-500 ring-2 ring-yellow-500 cursor-pointer shadow-xl hover:shadow-yellow-500/50 transition duration-300"
           />

@@ -1,6 +1,6 @@
-// storage.ts - Updated with liberer support
-import { type User, type InsertUser, type UpsertUser, type Alert, type InsertAlert, type AlertComment, type InsertAlertComment, type AlertValidation, type UserStats, type SystemStats, type AlertView, type InsertAlertView, type Liberer, type InsertLiberer, type LibererComment, type InsertLibererComment } from "@shared/schema";
-import { users, alerts, alertValidations, alertComments, alertViews, liberer, libererComments } from "@shared/schema";
+// storage.ts - Updated with CIN Verification support
+import { type User, type InsertUser, type UpsertUser, type Alert, type InsertAlert, type AlertComment, type InsertAlertComment, type AlertValidation, type UserStats, type SystemStats, type AlertView, type InsertAlertView, type Liberer, type InsertLiberer, type LibererComment, type InsertLibererComment, type CinVerification, type InsertCinVerification } from "@shared/schema";
+import { users, alerts, alertValidations, alertComments, alertViews, liberer, libererComments, cinVerifications } from "@shared/schema";
 import { db } from './db';
 import { eq, desc, and, or, count, sql } from "drizzle-orm";
 import { randomUUID, createHash } from "crypto";
@@ -44,6 +44,14 @@ export interface IStorage {
   // Liberer Comment methods
   getLibererComments(libererId: string): Promise<LibererComment[]>;
   createLibererComment(comment: InsertLibererComment): Promise<LibererComment>;
+
+  // CIN Verification methods
+  getAllCinVerifications(options?: { status?: string; userId?: string; limit?: number }): Promise<CinVerification[]>;
+  getCinVerification(id: string): Promise<CinVerification | undefined>;
+  getCinVerificationByUserId(userId: string): Promise<CinVerification | undefined>;
+  createCinVerification(cinVerif: InsertCinVerification): Promise<CinVerification>;
+  updateCinVerification(id: string, updates: Partial<CinVerification>): Promise<CinVerification | undefined>;
+  deleteCinVerification(id: string): Promise<boolean>;
 
   // Stats methods
   getUserStats(userId: string): Promise<UserStats>;
@@ -198,9 +206,11 @@ export class PostgreSQLStorage implements IStorage {
         hasCIN: (insertUser.cinUploadedFront ?? false) && (insertUser.cinUploadedBack ?? false),
         joinedAt: now,
         createdAt: now,
+        region: insertUser.region || null,
         updatedAt: now,
         alertsCount: 0,
         validationsCount: 0,
+        isActive: true,
       };
 
       const [user] = await db.insert(users).values(newUser).returning();
@@ -279,6 +289,7 @@ export class PostgreSQLStorage implements IStorage {
         latitude: updates.latitude,
         longitude: updates.longitude,
         urgency: updates.urgency,
+        region: updates.region,
         // media: updates.media, // Si vous voulez permettre la mise à jour des médias, décommentez
       };
 
@@ -395,6 +406,7 @@ export class PostgreSQLStorage implements IStorage {
         urgency: insertAlert.urgency || 'medium',
         authorId: insertAlert.authorId,
         media: insertAlert.media || [],
+        region: insertAlert.region || null,
         status: 'pending',
         confirmedCount: 0,
         rejectedCount: 0,
@@ -476,6 +488,7 @@ export class PostgreSQLStorage implements IStorage {
         rejectedCount: newRejected,
       };
 
+      // Optionnel: Auto-update status si seuil atteint
       if (newConfirmed >= 3) {
         updates.status = 'confirmed';
       } else if (newRejected >= 2) {
@@ -483,7 +496,10 @@ export class PostgreSQLStorage implements IStorage {
       }
 
       const [updatedAlert] = await db.update(alerts)
-        .set(updates)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
         .where(eq(alerts.id, id))
         .returning();
 
@@ -493,6 +509,39 @@ export class PostgreSQLStorage implements IStorage {
     } catch (error) {
       console.error('Error validating alert:', error);
       throw error;
+    }
+  }
+
+  async deleteAlert(id: string, authorId: string): Promise<boolean> {
+    try {
+      const alert = await this.getAlert(id);
+      if (!alert) return false;
+
+      const author = await this.getUser(authorId);
+      if (!author || (alert.authorId !== authorId && !author.isAdmin)) {
+        return false;
+      }
+
+      // Supprimer les validations associées
+      await db.delete(alertValidations).where(eq(alertValidations.alertId, id));
+
+      // Supprimer les vues associées
+      await db.delete(alertViews).where(eq(alertViews.alertId, id));
+
+      // Supprimer les commentaires associés
+      await db.delete(alertComments).where(eq(alertComments.alertId, id));
+
+      // Supprimer l'alerte
+      const result = await db.delete(alerts).where(eq(alerts.id, id)).returning({ id: alerts.id });
+
+      if (result.length > 0 && alert.authorId) {
+        await this.decrementUserAlertsCount(alert.authorId);
+      }
+
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting alert:', error);
+      return false;
     }
   }
 
@@ -509,9 +558,15 @@ export class PostgreSQLStorage implements IStorage {
 
   async createAlertComment(insertComment: InsertAlertComment): Promise<AlertComment> {
     try {
-      const [comment] = await db.insert(alertComments).values({
+      const now = new Date();
+      const commentData = {
+        id: randomUUID(),
         ...insertComment,
-      }).returning();
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const [comment] = await db.insert(alertComments).values(commentData).returning();
       return comment;
     } catch (error) {
       console.error('Error creating alert comment:', error);
@@ -519,34 +574,7 @@ export class PostgreSQLStorage implements IStorage {
     }
   }
 
-  async deleteAlert(id: string, authorId: string): Promise<boolean> {
-    try {
-      const alert = await this.getAlert(id);
-      if (!alert) return false;
-
-      // Si c'est l'auteur, OK direct
-      if (alert.authorId === authorId) {
-        await db.delete(alerts).where(eq(alerts.id, id));
-        return true;
-      }
-
-      // Sinon, check si requester est admin
-      const requester = await this.getUser(authorId);
-      if (!requester || !requester.isAdmin) {
-        return false;
-      }
-
-      // Admin peut supprimer
-      await db.delete(alerts).where(eq(alerts.id, id));
-      
-      return true;
-    } catch (error) {
-      console.error('Error deleting alert:', error);
-      return false;
-    }
-  }
-
-  // ✅ AJOUTÉ: Méthodes pour liberer
+  // ✅ AJOUTÉ: Implémentations pour liberer
 
   async getLiberers(options?: { limit?: number; status?: string; authorId?: string }): Promise<Liberer[]> {
     try {
@@ -601,6 +629,7 @@ export class PostgreSQLStorage implements IStorage {
 
   async createLiberer(insertLiberer: InsertLiberer): Promise<Liberer> {
     try {
+      const now = new Date();
       const libererData = {
         id: randomUUID(),
         personName: insertLiberer.personName,
@@ -615,13 +644,14 @@ export class PostgreSQLStorage implements IStorage {
         arrestedBy: insertLiberer.arrestedBy,
         authorId: insertLiberer.authorId,
         view: 0,
-        createdAt: new Date(),
+        createdAt: now,
+        updatedAt: now,
       };
 
       const [liber] = await db.insert(liberer).values(libererData).returning();
 
       if (liber.authorId) {
-        await this.incrementUserAlertsCount(liber.authorId); // Réutiliser pour liberer aussi ?
+        await this.incrementUserAlertsCount(liber.authorId); // Réutiliser pour liberer
       }
 
       return liber;
@@ -641,7 +671,7 @@ export class PostgreSQLStorage implements IStorage {
         return undefined;
       }
 
-      // Champs autorisés à mettre à jour (exclut id, status, etc.)
+      // Champs autorisés à mettre à jour
       const allowedUpdates: Partial<Liberer> = {
         personName: updates.personName,
         personDescription: updates.personDescription,
@@ -650,7 +680,7 @@ export class PostgreSQLStorage implements IStorage {
         arrestDescription: updates.arrestDescription,
         location: updates.location,
         validation: updates.validation,
-        arrestDate: updates.arrestDate,
+        arrestDate: updates.arrestDate ? new Date(updates.arrestDate) : undefined,
         arrestedBy: updates.arrestedBy,
       };
 
@@ -703,7 +733,10 @@ export class PostgreSQLStorage implements IStorage {
       }
 
       const [updatedLiberer] = await db.update(liberer)
-        .set({ validation, updatedAt: new Date() })
+        .set({
+          validation,
+          updatedAt: new Date()
+        })
         .where(eq(liberer.id, id))
         .returning();
 
@@ -719,22 +752,22 @@ export class PostgreSQLStorage implements IStorage {
       const liber = await this.getLiberer(id);
       if (!liber) return false;
 
-      // Si c'est l'auteur, OK direct
-      if (liber.authorId === authorId) {
-        await db.delete(liberer).where(eq(liberer.id, id));
-        return true;
-      }
-
-      // Sinon, check si requester est admin
-      const requester = await this.getUser(authorId);
-      if (!requester || !requester.isAdmin) {
+      const author = await this.getUser(authorId);
+      if (!author || (liber.authorId !== authorId && !author.isAdmin)) {
         return false;
       }
 
-      // Admin peut supprimer
-      await db.delete(liberer).where(eq(liberer.id, id));
-      
-      return true;
+      // Supprimer les commentaires associés
+      await db.delete(libererComments).where(eq(libererComments.libererId, id));
+
+      // Supprimer le liberer
+      const result = await db.delete(liberer).where(eq(liberer.id, id)).returning({ id: liberer.id });
+
+      if (result.length > 0 && liber.authorId) {
+        await this.decrementUserAlertsCount(liber.authorId); // Réutiliser pour liberer
+      }
+
+      return result.length > 0;
     } catch (error) {
       console.error('Error deleting liberer:', error);
       return false;
@@ -754,13 +787,137 @@ export class PostgreSQLStorage implements IStorage {
 
   async createLibererComment(insertComment: InsertLibererComment): Promise<LibererComment> {
     try {
-      const [comment] = await db.insert(libererComments).values({
+      const now = new Date();
+      const commentData = {
+        id: randomUUID(),
         ...insertComment,
-      }).returning();
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const [comment] = await db.insert(libererComments).values(commentData).returning();
       return comment;
     } catch (error) {
       console.error('Error creating liberer comment:', error);
       throw error;
+    }
+  }
+
+  // ✅ AJOUTÉ: Implémentations pour CIN Verifications
+
+  async getAllCinVerifications(options?: { status?: string; userId?: string; limit?: number }): Promise<CinVerification[]> {
+    try {
+      let query = db.select().from(cinVerifications);
+
+      const conditions = [];
+      if (options?.status) {
+        conditions.push(eq(cinVerifications.status, options.status));
+      }
+      if (options?.userId) {
+        conditions.push(eq(cinVerifications.userId, options.userId));
+      }
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+
+      query = query.orderBy(desc(cinVerifications.createdAt));
+
+      if (options?.limit) {
+        query = query.limit(options.limit);
+      }
+
+      return await query;
+    } catch (error) {
+      console.error('Error getting all CIN verifications:', error);
+      return [];
+    }
+  }
+
+  async getCinVerification(id: string): Promise<CinVerification | undefined> {
+    try {
+      const [verif] = await db.select().from(cinVerifications).where(eq(cinVerifications.id, id)).limit(1);
+      return verif;
+    } catch (error) {
+      console.error('Error getting CIN verification:', error);
+      return undefined;
+    }
+  }
+
+  async getCinVerificationByUserId(userId: string): Promise<CinVerification | undefined> {
+    try {
+      const [verif] = await db.select().from(cinVerifications).where(eq(cinVerifications.userId, userId)).limit(1);
+      return verif;
+    } catch (error) {
+      console.error('Error getting CIN verification by user ID:', error);
+      return undefined;
+    }
+  }
+
+  async createCinVerification(insertCinVerif: InsertCinVerification): Promise<CinVerification> {
+    try {
+      const now = new Date();
+      const cinVerifData = {
+        id: randomUUID(),
+        userId: insertCinVerif.userId,
+        lastName: insertCinVerif.lastName,
+        firstName: insertCinVerif.firstName,
+        birthDate: new Date(insertCinVerif.birthDate),
+        birthPlace: insertCinVerif.birthPlace,
+        address: insertCinVerif.address,
+        issuePlace: insertCinVerif.issuePlace,
+        issueDate: new Date(insertCinVerif.issueDate),
+        cinNumber: insertCinVerif.cinNumber,
+        cinUploadFrontUrl: insertCinVerif.cinUploadFrontUrl || null,
+        cinUploadBackUrl: insertCinVerif.cinUploadBackUrl || null,
+        status: insertCinVerif.status || 'pending',
+        adminId: insertCinVerif.adminId,
+        verifiedAt: insertCinVerif.verifiedAt ? new Date(insertCinVerif.verifiedAt) : null,
+        notes: insertCinVerif.notes || '',
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const [verif] = await db.insert(cinVerifications).values(cinVerifData).returning();
+      return verif;
+    } catch (error) {
+      console.error('Error creating CIN verification:', error);
+      throw error;
+    }
+  }
+
+  async updateCinVerification(id: string, updates: Partial<CinVerification>): Promise<CinVerification | undefined> {
+    try {
+      const existing = await this.getCinVerification(id);
+      if (!existing) return undefined;
+
+      // Convertir dates si fournies
+      if (updates.birthDate) updates.birthDate = new Date(updates.birthDate as string);
+      if (updates.issueDate) updates.issueDate = new Date(updates.issueDate as string);
+      if (updates.verifiedAt) updates.verifiedAt = new Date(updates.verifiedAt as string);
+
+      const [updatedVerif] = await db.update(cinVerifications)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
+        .where(eq(cinVerifications.id, id))
+        .returning();
+
+      return updatedVerif;
+    } catch (error) {
+      console.error('Error updating CIN verification:', error);
+      return undefined;
+    }
+  }
+
+  async deleteCinVerification(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(cinVerifications).where(eq(cinVerifications.id, id)).returning({ id: cinVerifications.id });
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting CIN verification:', error);
+      return false;
     }
   }
 
@@ -771,15 +928,15 @@ export class PostgreSQLStorage implements IStorage {
         return { alertsCount: 0, validationsCount: 0, confirmedAlertsCount: 0, fakeAlertsCount: 0 };
       }
 
-      const alertsResult = await db.select({ count: count() }).from(alerts).where(eq(alerts.authorId, userId));
-      const confirmedResult = await db.select({ count: count() }).from(alerts).where(and(eq(alerts.authorId, userId), eq(alerts.status, 'confirmed')));
-      const fakeResult = await db.select({ count: count() }).from(alerts).where(and(eq(alerts.authorId, userId), eq(alerts.status, 'fake')));
+      const userAlerts = await this.getAlertsByAuthor(userId);
+      const confirmedAlerts = userAlerts.filter(a => a.status === 'confirmed').length;
+      const fakeAlerts = userAlerts.filter(a => a.status === 'fake').length;
 
       return {
         alertsCount: user.alertsCount || 0,
         validationsCount: user.validationsCount || 0,
-        confirmedAlertsCount: confirmedResult[0]?.count || 0,
-        fakeAlertsCount: fakeResult[0]?.count || 0,
+        confirmedAlertsCount: confirmedAlerts,
+        fakeAlertsCount: fakeAlerts,
       };
     } catch (error) {
       console.error('Error getting user stats:', error);
@@ -789,31 +946,35 @@ export class PostgreSQLStorage implements IStorage {
 
   async getSystemStats(): Promise<SystemStats> {
     try {
-      const usersResult = await db.select({ count: count() }).from(users);
-      const alertsResult = await db.select({ count: count() }).from(alerts);
-      const confirmedAlertsResult = await db.select({ count: count() }).from(alerts).where(eq(alerts.status, 'confirmed'));
-      const pendingAlertsResult = await db.select({ count: count() }).from(alerts).where(eq(alerts.status, 'pending'));
-      const resolvedAlertsResult = await db.select({ count: count() }).from(alerts).where(eq(alerts.status, 'resolved'));
-      const validationsResult = await db.select({ count: count() }).from(alertValidations);
+      const [usersCountResult] = await db.select({ count: count() }).from(users);
+      const usersCount = Number(usersCountResult.count);
 
-      return {
-        usersCount: usersResult[0]?.count || 0,
-        alertsCount: alertsResult[0]?.count || 0,
-        confirmedAlertsCount: confirmedAlertsResult[0]?.count || 0,
-        pendingAlertsCount: pendingAlertsResult[0]?.count || 0,
-        resolvedAlertsCount: resolvedAlertsResult[0]?.count || 0,
-        validationsCount: validationsResult[0]?.count || 0,
+      const [alertsCountResult] = await db.select({ count: count() }).from(alerts);
+      const alertsCount = Number(alertsCountResult.count);
+
+      const [confirmedAlertsCountResult] = await db.select({ count: count() }).from(alerts).where(eq(alerts.status, 'confirmed'));
+      const confirmedAlertsCount = Number(confirmedAlertsCountResult.count);
+
+      const [pendingAlertsCountResult] = await db.select({ count: count() }).from(alerts).where(eq(alerts.status, 'pending'));
+      const pendingAlertsCount = Number(pendingAlertsCountResult.count);
+
+      const [resolvedAlertsCountResult] = await db.select({ count: count() }).from(alerts).where(eq(alerts.status, 'resolved'));
+      const resolvedAlertsCount = Number(resolvedAlertsCountResult.count);
+
+      const [validationsCountResult] = await db.select({ count: count() }).from(alertValidations);
+      const validationsCount = Number(validationsCountResult.count);
+
+      return { 
+        usersCount, 
+        alertsCount, 
+        confirmedAlertsCount, 
+        pendingAlertsCount, 
+        resolvedAlertsCount, 
+        validationsCount 
       };
     } catch (error) {
       console.error('Error getting system stats:', error);
-      return {
-        usersCount: 0,
-        alertsCount: 0,
-        confirmedAlertsCount: 0,
-        pendingAlertsCount: 0,
-        resolvedAlertsCount: 0,
-        validationsCount: 0,
-      };
+      return { usersCount: 0, alertsCount: 0, confirmedAlertsCount: 0, pendingAlertsCount: 0, resolvedAlertsCount: 0, validationsCount: 0 };
     }
   }
 
@@ -827,29 +988,38 @@ export class PostgreSQLStorage implements IStorage {
   }
 
   async updateUserAdmin(id: string, updates: Partial<User>): Promise<User | undefined> {
+    // Pour l'admin, permettre tous les updates (y compris password sans hash, mais on hash quand même)
+    if (updates.password) {
+      updates.password = this.hashPassword(updates.password as string);
+    }
+
     return await this.updateUser(id, updates);
   }
 
   private async incrementUserAlertsCount(userId: string): Promise<void> {
     try {
       await db.update(users)
-        .set({
-          alertsCount: sql`${users.alertsCount} + 1`,
-          updatedAt: new Date()
-        })
+        .set(sql`${users.alertsCount} + 1`, { updatedAt: new Date() })
         .where(eq(users.id, userId));
     } catch (error) {
       console.error('Error incrementing user alerts count:', error);
     }
   }
 
+  private async decrementUserAlertsCount(userId: string): Promise<void> {
+    try {
+      await db.update(users)
+        .set(sql`${users.alertsCount} - 1`, { updatedAt: new Date() })
+        .where(eq(users.id, userId));
+    } catch (error) {
+      console.error('Error decrementing user alerts count:', error);
+    }
+  }
+
   private async incrementUserValidationsCount(userId: string): Promise<void> {
     try {
       await db.update(users)
-        .set({
-          validationsCount: sql`${users.validationsCount} + 1`,
-          updatedAt: new Date()
-        })
+        .set(sql`${users.validationsCount} + 1`, { updatedAt: new Date() })
         .where(eq(users.id, userId));
     } catch (error) {
       console.error('Error incrementing user validations count:', error);
@@ -873,255 +1043,54 @@ export class PostgreSQLStorage implements IStorage {
   }
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private alerts: Map<string, Alert>;
-  private alertValidations: Map<string, AlertValidation>;
-  private comments: Map<string, AlertComment>;
-  private alertViews: Map<string, AlertView>; // ✅ AJOUTÉ: Map pour les vues
-  private liberers: Map<string, Liberer>; // ✅ AJOUTÉ: Map pour liberer
-  private libererComments: Map<string, LibererComment>; // ✅ AJOUTÉ: Map pour commentaires liberer
+// ✅ AJOUTÉ: Implémentation MemStorage pour CIN Verifications (pour cohérence, même si non utilisé en prod)
+class MemStorage implements IStorage {
+  users = new Map<string, User>();
+  alerts = new Map<string, Alert>();
+  alertValidations = new Map<string, AlertValidation>();
+  comments = new Map<string, AlertComment>();
+  alertViews = new Map<string, AlertView>();
+  liberers = new Map<string, Liberer>();
+  libererComments = new Map<string, LibererComment>();
+  cinVerifications = new Map<string, CinVerification>(); // ✅ AJOUTÉ
 
-  constructor() {
-    this.users = new Map();
-    this.alerts = new Map();
-    this.alertValidations = new Map();
-    this.comments = new Map();
-    this.alertViews = new Map();
-    this.liberers = new Map();
-    this.libererComments = new Map();
-    this.initializeDefaultData();
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
   }
 
-  private initializeDefaultData() {
-    const hashedPassword = this.hashPassword('123456');
-
-    const defaultUsers: User[] = [
-      {
-        id: 'usr_naina_001',
-        name: 'Naina Razafy',
-        email: 'naina.razafy@gmail.com',
-        firstName: 'Naina',
-        lastName: 'Razafy',
-        profileImageUrl: 'https://images.unsplash.com/photo-1494790108755-2616b169db2c?w=96&h=96&fit=crop&crop=face',
-        phone: '+261321234567',
-        password: hashedPassword, // ✅ Mot de passe hashé
-        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b169db2c?w=96&h=96&fit=crop&crop=face',
-        hasCIN: true,
-        cinUploadedFront: true,
-        cinUploadedBack: true,
-        cinUploadFrontUrl: '/uploads/cin/naina_usr_naina_001_front.jpg',
-        cinUploadBackUrl: '/uploads/cin/naina_usr_naina_001_back.jpg',
-        cinVerified: false,
-        cinVerifiedAt: null,
-        cinVerifiedBy: null,
-        isAdmin: false,
-        neighborhood: 'Antananarivo',
-        latitude: -18.8792,
-        longitude: 47.5079,
-        joinedAt: new Date('2024-01-01'),
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-01'),
-        alertsCount: 5,
-        validationsCount: 23,
-      },
-      {
-        id: 'usr_hery_002',
-        name: 'Hery Andriana',
-        email: 'hery@example.com',
-        firstName: 'Hery',
-        lastName: 'Andriana',
-        profileImageUrl: null,
-        phone: '+261331234568',
-        password: hashedPassword, // ✅ Mot de passe hashé
-        avatar: null,
-        hasCIN: true,
-        cinUploadedFront: true,
-        cinUploadedBack: true,
-        cinUploadFrontUrl: '/uploads/cin/hery_usr_hery_002_front.jpg',
-        cinUploadBackUrl: '/uploads/cin/hery_usr_hery_002_back.jpg',
-        cinVerified: false,
-        cinVerifiedAt: null,
-        cinVerifiedBy: null,
-        isAdmin: false,
-        neighborhood: 'Antsirabe',
-        latitude: -19.8639,
-        longitude: 46.0453,
-        joinedAt: new Date('2024-01-02'),
-        createdAt: new Date('2024-01-02'),
-        updatedAt: new Date('2024-01-02'),
-        alertsCount: 3,
-        validationsCount: 15,
-      },
-      {
-        id: 'usr_admin_001',
-        name: 'Administrateur',
-        email: 'admin@example.com',
-        firstName: 'Admin',
-        lastName: 'System',
-        profileImageUrl: null,
-        phone: '+261341234569',
-        password: hashedPassword, // ✅ Mot de passe hashé
-        avatar: null,
-        hasCIN: false,
-        cinUploadedFront: false,
-        cinUploadedBack: false,
-        cinUploadFrontUrl: null,
-        cinUploadBackUrl: null,
-        cinVerified: false,
-        cinVerifiedAt: null,
-        cinVerifiedBy: null,
-        isAdmin: true,
-        neighborhood: 'Antananarivo',
-        latitude: -18.8792,
-        longitude: 47.5079,
-        joinedAt: new Date('2024-01-01'),
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-01'),
-        alertsCount: 0,
-        validationsCount: 0,
+  async getUserByIdentity(identity: string): Promise<User | undefined> {
+    for (const user of this.users.values()) {
+      if (user.email === identity || user.phone === identity) {
+        return user;
       }
-    ];
+    }
+    return undefined;
+  }
 
-    defaultUsers.forEach(user => this.users.set(user.id, user));
-
-    const defaultAlerts: Alert[] = [
-      {
-        id: 'alert_001',
-        reason: 'Agression',
-        description: 'Tentative d\'agression signalée près du marché',
-        location: 'Analakely, Antananarivo',
-        status: 'pending',
-        urgency: 'high',
-        authorId: 'usr_naina_001',
-        confirmedCount: 2,
-        rejectedCount: 0,
-        media: [],
-        view: 10, // ✅ AJOUTÉ: Valeur par défaut pour view
-        createdAt: new Date(Date.now() - 15 * 60 * 1000),
-      },
-      {
-        id: 'alert_002',
-        reason: 'Vol',
-        description: 'Vol à la tire signalé dans la zone',
-        location: 'Andravoahangy, Antananarivo',
-        status: 'confirmed',
-        urgency: 'medium',
-        authorId: 'usr_hery_002',
-        confirmedCount: 5,
-        rejectedCount: 1,
-        media: [],
-        view: 5, // ✅ AJOUTÉ: Valeur par défaut pour view
-        createdAt: new Date(Date.now() - 60 * 60 * 1000),
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    for (const user of this.users.values()) {
+      if (user.email === email) {
+        return user;
       }
-    ];
+    }
+    return undefined;
+  }
 
-    defaultAlerts.forEach(alert => this.alerts.set(alert.id, alert));
-
-    const defaultValidations: AlertValidation[] = [
-      {
-        id: randomUUID(),
-        alertId: 'alert_001',
-        userId: 'usr_hery_002',
-        isValid: true,
-        validatedAt: new Date(Date.now() - 10 * 60 * 1000),
-      },
-      {
-        id: randomUUID(),
-        alertId: 'alert_001',
-        userId: 'usr_admin_001',
-        isValid: true,
-        validatedAt: new Date(Date.now() - 5 * 60 * 1000),
-      },
-      // Add more for alert_002 if needed
-    ];
-
-    defaultValidations.forEach(validation => this.alertValidations.set(validation.id, validation));
-
-    const defaultComments: AlertComment[] = [
-      {
-        id: randomUUID(),
-        alertId: 'alert_001',
-        userId: 'usr_hery_002',
-        type: 'text',
-        content: 'J\'ai vu quelque chose de similaire hier.',
-        createdAt: new Date(Date.now() - 8 * 60 * 1000),
-        updatedAt: new Date(Date.now() - 8 * 60 * 1000),
-      },
-    ];
-
-    defaultComments.forEach(comment => this.comments.set(comment.id, comment));
-
-    // ✅ AJOUTÉ: Données par défaut pour les vues
-    const defaultViews: AlertView[] = [
-      {
-        id: randomUUID(),
-        alertId: 'alert_001',
-        userId: 'usr_naina_001',
-        viewedAt: new Date(Date.now() - 10 * 60 * 1000),
-      },
-      {
-        id: randomUUID(),
-        alertId: 'alert_002',
-        userId: 'usr_hery_002',
-        viewedAt: new Date(Date.now() - 20 * 60 * 1000),
-      },
-    ];
-
-    defaultViews.forEach(view => this.alertViews.set(view.id, view));
-
-    // ✅ AJOUTÉ: Données par défaut pour liberer
-    const defaultLiberers: Liberer[] = [
-      {
-        id: 'liberer_001',
-        personName: 'Jean Dupont',
-        personDescription: 'Homme de 30 ans, cheveux noirs, portant un t-shirt bleu',
-        personImageUrl: 'https://example.com/person1.jpg',
-        arrestVideoUrl: 'https://example.com/arrest1.mp4',
-        arrestDescription: 'Arrêté arbitrairement par la police lors d\'une manifestation pacifique',
-        location: 'Place de l\'Indépendance, Antananarivo',
-        status: 'pending',
-        validation: false,
-        arrestDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // Il y a 2 jours
-        arrestedBy: 'Police Nationale',
-        authorId: 'usr_naina_001',
-        view: 3,
-        createdAt: new Date(Date.now() - 1 * 60 * 1000),
-      },
-      {
-        id: 'liberer_002',
-        personName: 'Marie Kuria',
-        personDescription: 'Femme de 25 ans, dreadlocks, vêtements traditionnels',
-        personImageUrl: 'https://example.com/person2.jpg',
-        arrestVideoUrl: null,
-        arrestDescription: 'Emmenée par les forces de l\'ordre sans motif clair',
-        location: 'Rue Ravoninahitriniarivo, Fianarantsoa',
-        status: 'confirmed',
-        validation: true,
-        arrestDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // Hier
-        arrestedBy: 'Gendarmerie',
-        authorId: 'usr_hery_002',
-        view: 7,
-        createdAt: new Date(Date.now() - 30 * 60 * 1000),
+  async getUserByPhone(phone: string): Promise<User | undefined> {
+    for (const user of this.users.values()) {
+      if (user.phone === phone) {
+        return user;
       }
-    ];
+    }
+    return undefined;
+  }
 
-    defaultLiberers.forEach(liber => this.liberers.set(liber.id, liber));
+  async validateUserCredentials(identity: string, password: string): Promise<User | undefined> {
+    const user = await this.getUserByIdentity(identity);
+    if (!user || !user.password) return undefined;
 
-    // ✅ AJOUTÉ: Données par défaut pour commentaires liberer
-    const defaultLibererComments: LibererComment[] = [
-      {
-        id: randomUUID(),
-        libererId: 'liberer_001',
-        userId: 'usr_hery_002',
-        type: 'text',
-        content: 'J\'ai des infos sur cet arrestation, contactez-moi.',
-        createdAt: new Date(Date.now() - 5 * 60 * 1000),
-        updatedAt: new Date(Date.now() - 5 * 60 * 1000),
-      },
-    ];
-
-    defaultLibererComments.forEach(comment => this.libererComments.set(comment.id, comment));
+    const isValid = this.verifyPassword(password, user.password);
+    return isValid ? user : undefined;
   }
 
   private hashPassword(password: string): string {
@@ -1131,37 +1100,6 @@ export class MemStorage implements IStorage {
   private verifyPassword(password: string, hashedPassword: string): boolean {
     const hashedInput = this.hashPassword(password);
     return hashedInput === hashedPassword;
-  }
-
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByIdentity(identity: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user =>
-      user.email === identity || user.phone === identity
-    );
-  }
-
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email);
-  }
-
-  async getUserByPhone(phone: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.phone === phone);
-  }
-
-  async validateUserCredentials(identity: string, password: string): Promise<User | undefined> {
-    try {
-      const user = await this.getUserByIdentity(identity);
-      if (!user || !user.password) return undefined;
-
-      const isValid = this.verifyPassword(password, user.password);
-      return isValid ? user : undefined;
-    } catch (error) {
-      console.error("Error validating user credentials:", error);
-      return undefined;
-    }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -1189,6 +1127,7 @@ export class MemStorage implements IStorage {
       updatedAt: now,
       alertsCount: 0,
       validationsCount: 0,
+      isActive: true,
     };
 
     this.users.set(id, user);
@@ -1200,7 +1139,7 @@ export class MemStorage implements IStorage {
     if (!existing) return undefined;
 
     if (updates.password) {
-      updates.password = this.hashPassword(updates.password);
+      updates.password = this.hashPassword(updates.password as string);
     }
 
     // Mettre à jour hasCIN basé sur les uploads si fournis
@@ -1430,6 +1369,11 @@ export class MemStorage implements IStorage {
 
     const requester = this.users.get(authorId);
     if (alert.authorId === authorId || (requester && requester.isAdmin)) {
+      // Supprimer validations, vues, comments (simplifié)
+      this.alertValidations.forEach((v, key) => { if (v.alertId === id) this.alertValidations.delete(key); });
+      this.alertViews.forEach((v, key) => { if (v.alertId === id) this.alertViews.delete(key); });
+      this.comments.forEach((c, key) => { if (c.alertId === id) this.comments.delete(key); });
+
       return this.alerts.delete(id);
     }
 
@@ -1485,6 +1429,7 @@ export class MemStorage implements IStorage {
       authorId: insertLiberer.authorId,
       view: 0,
       createdAt: now,
+      updatedAt: now,
     };
 
     this.liberers.set(id, liberer);
@@ -1568,6 +1513,9 @@ export class MemStorage implements IStorage {
 
     const requester = this.users.get(authorId);
     if (liber.authorId === authorId || (requester && requester.isAdmin)) {
+      // Supprimer comments (simplifié)
+      this.libererComments.forEach((c, key) => { if (c.libererId === id) this.libererComments.delete(key); });
+
       return this.liberers.delete(id);
     }
 
@@ -1592,6 +1540,91 @@ export class MemStorage implements IStorage {
 
     this.libererComments.set(id, comment);
     return comment;
+  }
+
+  // ✅ AJOUTÉ: Implémentations pour CIN Verifications (MemStorage)
+
+  async getAllCinVerifications(options?: { status?: string; userId?: string; limit?: number }): Promise<CinVerification[]> {
+    let verifsArray = Array.from(this.cinVerifications.values())
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+
+    if (options?.status) {
+      verifsArray = verifsArray.filter(verif => verif.status === options.status);
+    }
+
+    if (options?.userId) {
+      verifsArray = verifsArray.filter(verif => verif.userId === options.userId);
+    }
+
+    if (options?.limit) {
+      verifsArray = verifsArray.slice(0, options.limit);
+    }
+
+    return verifsArray;
+  }
+
+  async getCinVerification(id: string): Promise<CinVerification | undefined> {
+    return this.cinVerifications.get(id);
+  }
+
+  async getCinVerificationByUserId(userId: string): Promise<CinVerification | undefined> {
+    for (const verif of this.cinVerifications.values()) {
+      if (verif.userId === userId) {
+        return verif;
+      }
+    }
+    return undefined;
+  }
+
+  async createCinVerification(insertCinVerif: InsertCinVerification): Promise<CinVerification> {
+    const id = randomUUID();
+    const now = new Date();
+    const cinVerif: CinVerification = {
+      id,
+      userId: insertCinVerif.userId,
+      lastName: insertCinVerif.lastName,
+      firstName: insertCinVerif.firstName,
+      birthDate: new Date(insertCinVerif.birthDate),
+      birthPlace: insertCinVerif.birthPlace,
+      address: insertCinVerif.address,
+      issuePlace: insertCinVerif.issuePlace,
+      issueDate: new Date(insertCinVerif.issueDate),
+      cinNumber: insertCinVerif.cinNumber,
+      cinUploadFrontUrl: insertCinVerif.cinUploadFrontUrl || null,
+      cinUploadBackUrl: insertCinVerif.cinUploadBackUrl || null,
+      status: insertCinVerif.status || 'pending',
+      adminId: insertCinVerif.adminId,
+      verifiedAt: insertCinVerif.verifiedAt ? new Date(insertCinVerif.verifiedAt) : null,
+      notes: insertCinVerif.notes || '',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.cinVerifications.set(id, cinVerif);
+    return cinVerif;
+  }
+
+  async updateCinVerification(id: string, updates: Partial<CinVerification>): Promise<CinVerification | undefined> {
+    const existing = this.cinVerifications.get(id);
+    if (!existing) return undefined;
+
+    // Convertir dates si fournies
+    if (updates.birthDate) updates.birthDate = new Date(updates.birthDate as string);
+    if (updates.issueDate) updates.issueDate = new Date(updates.issueDate as string);
+    if (updates.verifiedAt) updates.verifiedAt = new Date(updates.verifiedAt as string);
+
+    const updatedVerif: CinVerification = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+
+    this.cinVerifications.set(id, updatedVerif);
+    return updatedVerif;
+  }
+
+  async deleteCinVerification(id: string): Promise<boolean> {
+    return this.cinVerifications.delete(id);
   }
 
   async getUserStats(userId: string): Promise<UserStats> {
@@ -1641,6 +1674,30 @@ export class MemStorage implements IStorage {
     return this.updateUser(id, updates);
   }
 
+  private async incrementUserAlertsCount(userId: string): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) {
+      user.alertsCount = (user.alertsCount || 0) + 1;
+      user.updatedAt = new Date();
+    }
+  }
+
+  private async decrementUserAlertsCount(userId: string): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) {
+      user.alertsCount = Math.max(0, (user.alertsCount || 0) - 1);
+      user.updatedAt = new Date();
+    }
+  }
+
+  private async incrementUserValidationsCount(userId: string): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) {
+      user.validationsCount = (user.validationsCount || 0) + 1;
+      user.updatedAt = new Date();
+    }
+  }
+
   private generateUserName(userData: InsertUser | UpsertUser): string {
     if (userData.name) {
       return userData.name;
@@ -1655,22 +1712,6 @@ export class MemStorage implements IStorage {
       return userData.lastName;
     }
     return `Utilisateur ${userData.phone?.slice(-4) || ''}`.trim();
-  }
-
-  private async incrementUserAlertsCount(userId: string): Promise<void> {
-    const user = this.users.get(userId);
-    if (user) {
-      user.alertsCount = (user.alertsCount || 0) + 1;
-      user.updatedAt = new Date();
-    }
-  }
-
-  private async incrementUserValidationsCount(userId: string): Promise<void> {
-    const user = this.users.get(userId);
-    if (user) {
-      user.validationsCount = (user.validationsCount || 0) + 1;
-      user.updatedAt = new Date();
-    }
   }
 }
 

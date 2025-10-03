@@ -235,7 +235,7 @@ const CommentsModal: React.FC<{ isOpen: boolean; onClose: () => void; comments: 
             comments.map((comment) => (
               <div key={comment.id} className="flex space-x-3 items-start">
                 <img
-                  src={comment.user.avatar || comment.user.profileImageUrl || 'http://localhost:5005/uploads/icon-user.png'}
+                  src={comment.user.avatar || comment.user.profileImageUrl || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
                   alt={comment.user.name}
                   className="w-9 h-9 rounded-full object-cover flex-shrink-0 border-2 border-yellow-500/50"
                 />
@@ -254,7 +254,7 @@ const CommentsModal: React.FC<{ isOpen: boolean; onClose: () => void; comments: 
         {/* Comment Input Form */}
         <form onSubmit={handleSubmitComment} className="p-4 border-t border-gray-800 flex items-center bg-[#201d1d] sticky bottom-0">
           <img
-            src={currentUser.avatar || currentUser.profileImageUrl || 'http://localhost:5005/uploads/icon-user.png'}
+            src={currentUser.avatar || currentUser.profileImageUrl || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
             alt="Avatar"
             className="w-9 h-9 rounded-full object-cover mr-3 border-2 border-yellow-500/50"
           />
@@ -379,7 +379,7 @@ const LibererCard: React.FC<{ post: LibererPost; currentUser: AppUser; onUpdateS
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center">
           <img
-            src={post.author.avatar || post.author.profileImageUrl || 'http://localhost:5005/uploads/icon-user.png'}
+            src={post.author.avatar || post.author.profileImageUrl || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
             alt={post.author.name}
             className="w-11 h-11 rounded-full object-cover mr-3 border-2 border-yellow-500/50 flex-shrink-0"
           />
@@ -867,8 +867,8 @@ export const LibDash: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#161313] text-white">
       {/* Header */}
-        <div className='flex flex-col items-center mt-6 px-4 sm:px-6 text-center'>
-          <h1 className="text-3xl font-extrabold text-yellow-400 tracking-wider">SOS Libération</h1>
+        <div className='flex flex-col items-center px-4 sm:px-6 text-center'>
+          <h1 className="text-3xl font-extrabold text-yellow-400 tracking-wider mt-6">SOS Libération</h1>
           <p className="text-zinc-400 font-mono text-sm">
             Cette section vous permet de signaler rapidement une situation urgente en cas d’arrestation ou de détention. <br/>Notre équipe reçoit immédiatement l’alerte et vous accompagne dans les démarches nécessaires pour obtenir une libération dans les plus brefs délais..
           </p>
@@ -908,7 +908,7 @@ export const LibDash: React.FC = () => {
       <div className="fixed bottom-6 right-6 sm:bottom-10 sm:right-10 flex flex-row items-center space-x-3 z-40">
         <div className="group relative hidden sm:block">
           <img
-            src={currentUser.avatar || currentUser.profileImageUrl || 'http://localhost:5005/uploads/icon-user.png'}
+            src={currentUser.avatar || currentUser.profileImageUrl || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
             alt="Profil"
             className="w-12 h-12 rounded-full object-cover border-2 border-yellow-500 cursor-pointer hover:shadow-lg transition duration-200"
           />

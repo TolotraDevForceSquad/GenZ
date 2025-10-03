@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth, AuthProvider } from "./hooks/use-auth";
+import { useQuery } from '@tanstack/react-query'; // ✅ AJOUTÉ: Pour fetch currentUser globalement
 
 // Pages
 import NotFound from "@/pages/not-found";
@@ -25,8 +26,46 @@ import LibDash from "./components/LibDash";
 import React from "react"; // Ajouté pour React.CSSProperties
 
 function AuthenticatedApp() {
-  const { user, login, logout, isAuthenticated } = useAuth();
+  const { user: authUser, login, logout, isAuthenticated } = useAuth(); // Renommé pour clarté
   const [, setLocation] = useLocation();
+
+  // ✅ AJOUTÉ: Query globale pour currentUser (refetch forcé à chaque mount pour sync avec BD)
+  const { data: currentUserRaw, isError: authError, isLoading: userLoading } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      const token = authUser?.id; // Token = user.id du contexte
+      if (!token) {
+        throw new Error('No token');
+      }
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        throw new Error('Not authenticated');
+      }
+      return response.json();
+    },
+    enabled: !!authUser?.id, // Seulement si token dispo
+    retry: false,
+    refetchOnMount: 'always', // ✅ AJOUTÉ: Refetch à chaque mount (ex: navigation/refresh)
+    refetchOnWindowFocus: true, // ✅ AJOUTÉ: Refetch si fenêtre refocusée
+  });
+
+  // Merge authUser (du contexte) avec currentUser (de la query) pour updaté
+  const currentUser = currentUserRaw ? {
+    ...authUser,
+    ...currentUserRaw, // Priorité aux data fraîches (ex: avatar updaté)
+    avatar: currentUserRaw.avatar, // Force update avatar
+    hasCIN: currentUserRaw.hasCIN ?? authUser?.hasCIN,
+    isAdmin: currentUserRaw.isAdmin ?? authUser?.isAdmin,
+  } : authUser;
+
+  // Si erreur de refetch, fallback sur authUser mais log
+  if (authError) {
+    console.warn('Erreur refetch currentUser:', authError);
+  }
 
   // Données mock pour les alertes (remplace par API en prod)
   const alertsData = [
@@ -112,7 +151,7 @@ function AuthenticatedApp() {
     setLocation('/login');
   };
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || userLoading) { // ✅ AJOUTÉ: Loading pour userLoading
     return (
       <Switch>
         <Route path="/" component={() => <LandingPage onLogin={navigateToLogin} />} />
@@ -123,18 +162,25 @@ function AuthenticatedApp() {
     );
   }
 
+  if (authError) {
+    // Fallback si refetch échoue : logout
+    handleLogout();
+    return null;
+  }
+
   const sidebarStyle = {
     "--sidebar-width": "20rem",
     "--sidebar-width-icon": "4rem",
   } as React.CSSProperties;
 
   // Token = user.id (disponible via useAuth, persistant via localStorage dans le hook)
-  const authToken = user?.id || '';
+  const authToken = currentUser?.id || '';
 
   return (
     <SidebarProvider style={sidebarStyle}>
       <div className="flex h-screen w-full bg-zinc-900"> {/* Fond principal sombre */}
-        <AppSidebar user={user!} onLogout={handleLogout} />
+        {/* ✅ MODIFIÉ: Passer currentUser au Sidebar (updaté via query) */}
+        <AppSidebar user={currentUser!} onLogout={handleLogout} />
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Nouveau design du header : sombre, border néon */}
           {/* <header className="flex items-center justify-between p-4 border-b border-yellow-400/30 bg-zinc-950/90 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/80 sticky top-0 z-10">
@@ -173,19 +219,18 @@ function AuthenticatedApp() {
 
                 {/* Nom de l'utilisateur : Toujours visible, en surbrillance */}
                 <span className="font-semibold text-white truncate max-w-[100px] sm:max-w-none">
-                  {user?.name}
+                  {currentUser?.name} {/* ✅ MODIFIÉ: Utilise currentUser pour sync */}
                 </span>
 
                 {/* Badge ADMIN : Design High Contrast Gold */}
-                {user?.isAdmin && (
-                  <Badge
-                    variant="secondary"
-                    // Classe ajustée pour un badge plus petit (h-5, text-xs) et plus lisible
-                    className="ml-2 h-5 text-xs bg-yellow-400 text-gray-950 font-extrabold border-none"
-                  >
-                    ADMIN
-                  </Badge>
-                )}
+                {/* ✅ MODIFIÉ: currentUser */}
+                {currentUser?.isAdmin && <Badge
+                  variant="secondary"
+                  // Classe ajustée pour un badge plus petit (h-5, text-xs) et plus lisible
+                  className="ml-2 h-5 text-xs bg-yellow-400 text-gray-950 font-extrabold border-none"
+                >
+                  ADMIN
+                </Badge>}
               </span>
               {/* Vous pouvez ajouter ici un bouton d'avatar ou de notification si besoin, en respectant le gap-3 */}
             </div>
@@ -194,7 +239,7 @@ function AuthenticatedApp() {
             <Switch>
               {/* Page d'accueil = on choisit quoi afficher */}
               <Route path="/">
-                {user?.isAdmin ? <AdminDashboard /> : <Dashboard />}
+                {currentUser?.isAdmin ? <AdminDashboard /> : <Dashboard />} {/* ✅ MODIFIÉ: currentUser */}
               </Route>
 
               {/* Dashboard normal → accessible à tout le monde */}
@@ -204,7 +249,7 @@ function AuthenticatedApp() {
 
               {/* Dashboard admin → protégé */}
               <Route path="/admin">
-                {user?.isAdmin ? (
+                {currentUser?.isAdmin ? ( 
                   <AdminDashboard
                     onUserAction={(userId, action) => console.log('User action:', userId, action)}
                     onAlertAction={(alertId, action) => console.log('Alert action:', alertId, action)}

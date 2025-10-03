@@ -1,8 +1,8 @@
-// routes.ts - Updated with liberer routes
+// routes.ts - Updated with CIN Verification CRUD routes
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertAlertSchema, updateAlertStatusSchema, validateAlertSchema, insertUserSchema, insertAlertCommentSchema, updateAlertSchema, insertLibererSchema, updateLibererStatusSchema, updateLibererSchema, insertLibererCommentSchema } from "@shared/schema";
+import { insertAlertSchema, updateAlertStatusSchema, validateAlertSchema, insertUserSchema, insertAlertCommentSchema, updateAlertSchema, insertLibererSchema, updateLibererStatusSchema, updateLibererSchema, insertLibererCommentSchema, insertCinVerificationSchema, updateCinVerificationSchema } from "@shared/schema";
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -77,6 +77,7 @@ function buildUserResponse(user: any) {
     hasCIN: user.hasCIN,
     isAdmin: user.isAdmin,
     neighborhood: user.neighborhood,
+    region: user.region,
     latitude: user.latitude,
     longitude: user.longitude,
     joinedAt: user.joinedAt,
@@ -103,6 +104,7 @@ function buildUserFullResponse(user: any) {
 function buildAdminUserResponse(user: any) {
   return {
     ...buildUserFullResponse(user),
+    isActive: user.isActive,
     // Admin gets everything, including verifier details if needed
   };
 }
@@ -152,6 +154,17 @@ async function renameCINFiles(userId: string, oldFirstName: string, newFirstName
   } catch (error) {
     console.error('Error renaming CIN files:', error);
   }
+}
+
+// ✅ AJOUTÉ: Fonction utilitaire pour vérifier si l'utilisateur est admin
+async function isAdmin(authHeader: string | undefined): Promise<{ isAdmin: boolean; userId: string | null }> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { isAdmin: false, userId: null };
+  }
+
+  const userId = authHeader.split(' ')[1];
+  const user = await storage.getUser(userId);
+  return { isAdmin: user?.isAdmin || false, userId };
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -258,7 +271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/alerts", upload.single("media"), async (req, res) => {
     try {
-      const { reason, description, location, urgency, authorId, latitude, longitude } = req.body;
+      const { reason, description, location, urgency, authorId, latitude, longitude, region } = req.body;
       const media = req.file ? [`/uploads/${req.file.filename}`] : [];
 
       const defaultAuthorId = "usr_admin_001";
@@ -276,6 +289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         latitude: parsedLatitude,
         longitude: parsedLongitude,
         media,
+        region,
         authorId: effectiveAuthorId
       };
 
@@ -899,7 +913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const { firstName, lastName, email, phone, password, neighborhood, latitude, longitude } = req.body;
+      const { firstName, lastName, email, phone, password, neighborhood, latitude, longitude, region } = req.body;
 
       if (!email && !phone) {
         return res.status(400).json({
@@ -944,6 +958,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         neighborhood,
         latitude: parsedLatitude,
         longitude: parsedLongitude,
+        region,
         hasCIN: false,
         isAdmin: false
       };
@@ -1320,6 +1335,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin routes
   app.get("/api/admin/users", async (req, res) => {
     try {
+      const authCheck = await isAdmin(req.headers.authorization);
+      if (!authCheck.isAdmin) {
+        return res.status(403).json({ error: "Accès admin requis" });
+      }
+
       const users = await storage.getAllUsers();
 
       const usersResponse = users.map(user => buildAdminUserResponse(user));
@@ -1333,6 +1353,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/users/:id", async (req, res) => {
     try {
+      const authCheck = await isAdmin(req.headers.authorization);
+      if (!authCheck.isAdmin) {
+        return res.status(403).json({ error: "Accès admin requis" });
+      }
+
       const { id } = req.params;
       const updates = req.body;
 
@@ -1365,6 +1390,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin CIN verification route
   app.put("/api/admin/users/:id/verify-cin", async (req, res) => {
     try {
+      const authCheck = await isAdmin(req.headers.authorization);
+      if (!authCheck.isAdmin) {
+        return res.status(403).json({ error: "Accès admin requis" });
+      }
+
       const { id } = req.params;
       const { verified, verifierId } = req.body;
 
@@ -1403,6 +1433,190 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Échec de la vérification de la CIN",
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
+    }
+  });
+
+  // ✅ AJOUTÉ: CRUD Routes pour les vérifications CIN (Admin only)
+
+  // GET /api/admin/cin-verifications - Lister toutes les vérifications CIN
+  app.get("/api/admin/cin-verifications", async (req, res) => {
+    try {
+      const authCheck = await isAdmin(req.headers.authorization);
+      if (!authCheck.isAdmin) {
+        return res.status(403).json({ error: "Accès admin requis" });
+      }
+
+      const status = req.query.status as string;
+      const userId = req.query.userId as string;
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      // Assumer que storage.getAllCinVerifications existe avec options { status?, userId?, limit? }
+      const verifications = await storage.getAllCinVerifications({ status, userId, limit });
+
+      // Enrichir avec détails utilisateur si possible
+      const verificationsWithUser = await Promise.all(
+        verifications.map(async (verif: any) => {
+          try {
+            const user = await storage.getUser(verif.userId);
+            return {
+              ...verif,
+              user: user ? buildUserResponse(user) : null
+            };
+          } catch (error) {
+            console.error(`Error fetching user for CIN verif ${verif.id}:`, error);
+            return { ...verif, user: null };
+          }
+        })
+      );
+
+      res.json(verificationsWithUser);
+    } catch (error) {
+      console.error("Error fetching CIN verifications:", error);
+      res.status(500).json({ error: "Failed to fetch CIN verifications" });
+    }
+  });
+
+  // GET /api/admin/cin-verifications/:id - Récupérer une vérification CIN spécifique
+  app.get("/api/admin/cin-verifications/:id", async (req, res) => {
+    try {
+      const authCheck = await isAdmin(req.headers.authorization);
+      if (!authCheck.isAdmin) {
+        return res.status(403).json({ error: "Accès admin requis" });
+      }
+
+      const { id } = req.params;
+      const verif = await storage.getCinVerification(id);
+
+      if (!verif) {
+        return res.status(404).json({ error: "Vérification CIN non trouvée" });
+      }
+
+      // Enrichir avec détails utilisateur
+      const user = await storage.getUser(verif.userId);
+      const verifWithUser = {
+        ...verif,
+        user: user ? buildUserResponse(user) : null
+      };
+
+      res.json(verifWithUser);
+    } catch (error) {
+      console.error("Error fetching single CIN verification:", error);
+      res.status(500).json({ error: "Failed to fetch CIN verification" });
+    }
+  });
+
+  // POST /api/admin/cin-verifications - Créer une nouvelle vérification CIN
+  app.post("/api/admin/cin-verifications", async (req, res) => {
+    try {
+      const authCheck = await isAdmin(req.headers.authorization);
+      if (!authCheck.isAdmin) {
+        return res.status(403).json({ error: "Accès admin requis" });
+      }
+
+      const data = insertCinVerificationSchema.parse(req.body);
+
+      // Vérifier si une vérification existe déjà pour cet utilisateur
+      const existing = await storage.getCinVerificationByUserId(data.userId);
+      if (existing) {
+        return res.status(409).json({ error: "Une vérification CIN existe déjà pour cet utilisateur" });
+      }
+
+      const verif = await storage.createCinVerification(data);
+
+      // Enrichir avec détails utilisateur
+      const user = await storage.getUser(data.userId);
+      const verifWithUser = {
+        ...verif,
+        user: user ? buildUserResponse(user) : null
+      };
+
+      // Optionnel: Mettre à jour le status utilisateur si verified
+      if (verif.status === 'verified') {
+        await storage.updateUser(data.userId, { cinVerified: true, cinVerifiedAt: new Date().toISOString(), cinVerifiedBy: data.adminId });
+      }
+
+      res.status(201).json(verifWithUser);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Données invalides", details: error.errors });
+      }
+      console.error("Error creating CIN verification:", error);
+      res.status(500).json({ error: "Failed to create CIN verification" });
+    }
+  });
+
+  // PUT /api/admin/cin-verifications/:id - Mettre à jour une vérification CIN
+  app.put("/api/admin/cin-verifications/:id", async (req, res) => {
+    try {
+      const authCheck = await isAdmin(req.headers.authorization);
+      if (!authCheck.isAdmin) {
+        return res.status(403).json({ error: "Accès admin requis" });
+      }
+
+      const { id } = req.params;
+      const updates = updateCinVerificationSchema.parse(req.body);
+
+      // Vérifier existence
+      const existing = await storage.getCinVerification(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Vérification CIN non trouvée" });
+      }
+
+      const verif = await storage.updateCinVerification(id, updates);
+
+      if (!verif) {
+        return res.status(500).json({ error: "Échec de la mise à jour" });
+      }
+
+      // Enrichir avec détails utilisateur
+      const user = await storage.getUser(verif.userId);
+      const verifWithUser = {
+        ...verif,
+        user: user ? buildUserResponse(user) : null
+      };
+
+      // Optionnel: Sync avec users si status change à verified/rejected
+      if (updates.status === 'verified') {
+        await storage.updateUser(verif.userId, { cinVerified: true, cinVerifiedAt: new Date().toISOString(), cinVerifiedBy: authCheck.userId });
+      } else if (updates.status === 'rejected') {
+        await storage.updateUser(verif.userId, { cinVerified: false, cinVerifiedAt: null, cinVerifiedBy: null });
+      }
+
+      res.json(verifWithUser);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Données invalides", details: error.errors });
+      }
+      console.error("Error updating CIN verification:", error);
+      res.status(500).json({ error: "Failed to update CIN verification" });
+    }
+  });
+
+  // DELETE /api/admin/cin-verifications/:id - Supprimer une vérification CIN
+  app.delete("/api/admin/cin-verifications/:id", async (req, res) => {
+    try {
+      const authCheck = await isAdmin(req.headers.authorization);
+      if (!authCheck.isAdmin) {
+        return res.status(403).json({ error: "Accès admin requis" });
+      }
+
+      const { id } = req.params;
+      const success = await storage.deleteCinVerification(id);
+
+      if (!success) {
+        return res.status(404).json({ error: "Vérification CIN non trouvée" });
+      }
+
+      // Optionnel: Reset CIN status utilisateur
+      const verif = await storage.getCinVerification(id); // Fetch avant delete si besoin, mais assumons storage.delete retourne le deleted item ou true
+      if (verif) {
+        await storage.updateUser(verif.userId, { cinVerified: false, cinVerifiedAt: null, cinVerifiedBy: null });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting CIN verification:", error);
+      res.status(500).json({ error: "Failed to delete CIN verification" });
     }
   });
 

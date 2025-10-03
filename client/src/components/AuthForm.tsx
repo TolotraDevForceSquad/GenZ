@@ -3,10 +3,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Eye, EyeOff, Phone, User, Lock, Mail, MapPin } from "lucide-react";
 import genZLogo from "@assets/genzlogo_1758921534790.jpeg";
-import { searchLocations, type Location } from "./types/locationsData";
+
+type Location = {
+  localisation: string;
+  latitude: number;
+  longitude: number;
+  region: string;
+};
+
+const searchLocations = (query: string, locations: Location[]): Location[] => {
+  if (!query.trim()) return [];
+  const lowerQuery = query.toLowerCase();
+  return locations.filter(location => 
+    location.localisation.toLowerCase().includes(lowerQuery)
+  ).slice(0, 10);
+};
 
 interface AuthFormProps {
   mode: 'login' | 'register';
@@ -18,6 +32,7 @@ interface AuthFormProps {
 
 export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error }: AuthFormProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const [allLocations, setAllLocations] = useState<Location[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     firstName: '',
@@ -27,9 +42,25 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
     password: '',
     neighborhood: '',
     latitude: undefined as number | undefined,
-    longitude: undefined as number | undefined
+    longitude: undefined as number | undefined,
+    region: ''
   });
   const [suggestions, setSuggestions] = useState<Location[]>([]);
+
+  // Charger les données de localisation
+  useEffect(() => {
+    const loadAllLocations = async () => {
+      try {
+        const madagascarData = await import(`./types/madagascars.json`);
+        setAllLocations(madagascarData.default || madagascarData);
+      } catch (error) {
+        console.error('Erreur lors du chargement des données de localisation:', error);
+        setAllLocations([]);
+      }
+    };
+
+    loadAllLocations();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +97,8 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
         password: formData.password,
         neighborhood: formData.neighborhood || 'Non spécifié',
         latitude: formData.latitude,
-        longitude: formData.longitude
+        longitude: formData.longitude,
+        region: formData.region || ''
       };
     }
     
@@ -79,15 +111,17 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
 
   const handleNeighborhoodChange = (value: string) => {
     handleChange('neighborhood', value);
-    setSuggestions(searchLocations(value));
+    const newSuggestions = searchLocations(value, allLocations);
+    setSuggestions(newSuggestions);
   };
 
   const selectLocation = (location: Location) => {
     setFormData(prev => ({
       ...prev,
-      neighborhood: location.name,
+      neighborhood: location.localisation,
       latitude: location.latitude,
-      longitude: location.longitude
+      longitude: location.longitude,
+      region: location.region
     }));
     setSuggestions([]);
   };
@@ -96,14 +130,11 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
     setTimeout(() => setSuggestions([]), 200);
   };
 
-  // Styles du thème "High Contrast Gold"
-  const neonGoldShadow = "x";
-
   return (
     // Fond noir profond
     <div className="min-h-screen flex items-center justify-center px-4 py-8 lg:py-16 bg-gray-950">
       {/* Carte: Fond sombre avec bordure/ombre dorée */}
-      <Card className={`w-full max-w-xl bg-gray-900 border-gray-800 text-white shadow-2xl ${neonGoldShadow} transition duration-300`}>
+      <Card className="w-full max-w-xl bg-gray-900 border-gray-800 text-white shadow-2xl transition duration-300">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             {/* Logo avec glow */}
@@ -194,13 +225,14 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
 
                 {/* Quartier (Full width pour les suggestions) */}
                 <div className="space-y-2 relative">
-                  <Label htmlFor="neighborhood" className="text-yellow-400">Quartier</Label>
+                  <Label htmlFor="neighborhood" className="text-yellow-400">Quartier/Localité</Label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                     <Input
                       id="neighborhood"
                       type="text"
-                      placeholder="Votre quartier (recherchez pour suggestions)"
+                      autoComplete="off"
+                      placeholder="Recherchez votre quartier/localité"
                       className="pl-10 bg-gray-800 border-gray-700 text-white focus:border-yellow-400"
                       value={formData.neighborhood}
                       onChange={(e) => handleNeighborhoodChange(e.target.value)}
@@ -212,17 +244,21 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
                     <ul className="absolute z-50 w-full bg-gray-700 border border-yellow-400/50 rounded-md shadow-lg mt-1 max-h-60 overflow-auto">
                       {suggestions.map((location) => (
                         <li
-                          key={location.name}
+                          key={location.localisation}
                           onClick={() => selectLocation(location)}
                           className="p-3 cursor-pointer hover:bg-yellow-400 hover:text-black text-sm border-b border-gray-600 last:border-b-0"
                         >
-                          <div className="font-medium text-white hover:text-black">{location.name}</div>
-                          <div className="text-xs text-gray-400 hover:text-black">{location.district}</div>
+                          <div className="font-medium text-white hover:text-black">{location.localisation}</div>
+                          <div className="text-xs text-gray-400 hover:text-black">
+                            {location.region} • Lat: {location.latitude}, Lng: {location.longitude}
+                          </div>
                         </li>
                       ))}
                     </ul>
                   )}
-                  <p className="text-xs text-gray-500">Optionnel - Position géographique enregistrée</p>
+                  <p className="text-xs text-gray-500">
+                    Recherchez votre quartier/localité dans Madagascar ({suggestions.length} résultats)
+                  </p>
                 </div>
               </>
             )}
@@ -297,7 +333,7 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
             {/* Bouton de soumission (Bouton principal Jaune Doré) */}
             <Button 
               type="submit" 
-              className={`w-full h-12 text-base font-bold bg-yellow-400 hover:bg-yellow-500 text-black shadow-lg shadow-yellow-400/50 ${loading ? 'opacity-80' : ''}`} 
+              className={`w-full h-12 text-base font-bold bg-yellow-400 hover:bg-yellow-500 text-black shadow-lg ${loading ? 'opacity-80' : ''}`} 
               disabled={loading}
               data-testid="button-submit"
             >

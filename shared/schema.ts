@@ -1,4 +1,4 @@
-// schema.ts - Updated with liberer table (simplified, with separate comments table)
+// schema.ts - Updated with liberer table (simplified, with separate comments table) and cinVerifications table
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -14,6 +14,7 @@ export const users = pgTable("users", {
   phone: varchar("phone"),
   password: varchar("password"), // ✅ CHAMP AJOUTÉ
   neighborhood: varchar("neighborhood"),
+  region: varchar("region"),
   latitude: doublePrecision("latitude"), // ✅ CHAMP AJOUTÉ
   longitude: doublePrecision("longitude"), // ✅ CHAMP AJOUTÉ
   avatar: varchar("avatar"),
@@ -27,6 +28,7 @@ export const users = pgTable("users", {
   cinVerifiedAt: timestamp("cin_verified_at"),
   cinVerifiedBy: varchar("cin_verified_by").references(() => users.id, { onDelete: "set null" }),
   isAdmin: boolean("is_admin").default(false),
+  isActive: boolean("is_active").default(true),
   alertsCount: integer("alerts_count").default(0),
   validationsCount: integer("validations_count").default(0),
   joinedAt: timestamp("joined_at").defaultNow(),
@@ -44,6 +46,7 @@ export const alerts = pgTable("alerts", {
   latitude: doublePrecision("latitude"), // ✅ CORRIGÉ : doublePrecision au lieu de decimal
   longitude: doublePrecision("longitude"), // ✅ CORRIGÉ : doublePrecision au lieu de decimal
   status: text("status").notNull().default("pending"),
+  region: varchar("region"),
   urgency: text("urgency").notNull().default("medium"),
   authorId: varchar("author_id", { length: 50 }).notNull().references(() => users.id, { onDelete: "cascade" }),
   confirmedCount: integer("confirmed_count").default(0),
@@ -151,6 +154,51 @@ export const libererComments = pgTable("liberer_comments", {
   index("liberer_comments_created_at_idx").on(table.createdAt),
 ]);
 
+// ✅ AJOUTÉ: TABLE DES VÉRIFICATIONS CIN - Une seule table pour stocker les détails CIN soumis par les utilisateurs, vérifiés par l'admin.
+// Cette table permet de lier les détails à un utilisateur spécifique, de tracker le status de vérification,
+// et de détecter des doublons (via queries sur cinNumber + lastName + firstName).
+// L'admin saisit les détails via modal et met à jour le status. Pour les doublons, une query front/back peut checker
+// si un autre utilisateur a le même cinNumber ET (lastName + firstName), et afficher une alerte (ex: "Doublon potentiel détecté").
+
+export const cinVerifications = pgTable("cin_verifications", {
+  id: varchar("id", { length: 50 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 50 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Champs saisis par l'admin pour les détails du CIN
+  lastName: varchar("last_name", { length: 100 }).notNull(), // Nom de famille
+  firstName: varchar("first_name", { length: 100 }).notNull(), // Prénom
+  birthDate: timestamp("birth_date").notNull(), // Date de naissance
+  birthPlace: text("birth_place").notNull(), // Lieu de naissance
+  address: text("address").notNull(), // Adresse indiquée dans le CIN
+  issuePlace: text("issue_place").notNull(), // Lieu de délivrance
+  issueDate: timestamp("issue_date").notNull(), // Date de délivrance
+  cinNumber: varchar("cin_number", { length: 20 }).notNull(), // Numéro de CIN (unique par contrainte pour éviter doublons immédiats)
+  // Liens vers les uploads (référence aux champs existants dans users)
+  cinUploadFrontUrl: varchar("cin_upload_front_url"),
+  cinUploadBackUrl: varchar("cin_upload_back_url"),
+  // Status de vérification (suggérés ci-dessous pour gérer les cas de doublons et alertes)
+  status: varchar("status").notNull().default("pending"), // Enum-like: pending, verified, rejected, duplicate, suspicious
+  // Suggestions de status:
+  // - 'pending': En attente de vérification par admin
+  // - 'verified': Vérifié et OK (met à jour users.cinVerified = true)
+  // - 'rejected': Rejeté (raisons dans notes, ex: docs faux)
+  // - 'duplicate': Doublon détecté (même CIN + nom/prénom qu'un autre user) → Alerte front pour prévenir l'utilisateur/admin
+  // - 'suspicious': Suspect (ex: incohérences mineures) → Nécessite review supplémentaire, alerte modérée
+  adminId: varchar("admin_id", { length: 50 }).references(() => users.id, { onDelete: "set null" }), // Admin qui a vérifié
+  verifiedAt: timestamp("verified_at"),
+  notes: text("notes").default(""), // Commentaires admin (ex: "Doublon avec user X", "Docs OK")
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  // Contrainte unique sur cinNumber pour éviter doublons immédiats (mais permettre queries pour lastName + firstName)
+  uniqueIndex("cin_verifications_cin_number_unique").on(table.cinNumber),
+  // Index composite pour queries de doublons rapides (même CIN + nom complet)
+  index("cin_verifications_doublon_idx").on(table.cinNumber, table.lastName, table.firstName),
+  index("cin_verifications_user_id_idx").on(table.userId),
+  index("cin_verifications_status_idx").on(table.status),
+  index("cin_verifications_admin_id_idx").on(table.adminId),
+  index("cin_verifications_created_at_idx").on(table.createdAt),
+]);
+
 // === TABLE DES SESSIONS ===
 
 export const sessions = pgTable(
@@ -194,6 +242,7 @@ export const insertUserSchema = createInsertSchema(users, {
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   neighborhood: z.string().optional().default("Non spécifié"),
+  region: z.string().optional(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
   cinUploadedFront: z.boolean().optional().default(false),
@@ -220,9 +269,11 @@ export const upsertUserSchema = createInsertSchema(users).pick({
   profileImageUrl: true,
   phone: true,
   neighborhood: true,
+  region: true,
   latitude: true,
   longitude: true,
   isAdmin: true,
+  isActive: true,
   cinUploadedFront: true,
   cinUploadedBack: true,
   cinUploadFrontUrl: true,
@@ -261,6 +312,7 @@ export const updateAlertSchema = z.object({
   urgency: z.enum(['low', 'medium', 'high']).optional(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
+  region: z.string().optional(),
   // media: z.array(z.string().url()).optional(), // Si vous voulez permettre la mise à jour des médias
 });
 
@@ -339,6 +391,48 @@ export const insertLibererCommentSchema = createInsertSchema(libererComments).om
   updatedAt: true,
 });
 
+// ✅ AJOUTÉ: Schéma Zod pour l'insertion d'une vérification CIN (saisie via modal par admin)
+export const insertCinVerificationSchema = createInsertSchema(cinVerifications, {
+  lastName: z.string().min(1, "Le nom de famille est requis").max(100),
+  firstName: z.string().min(1, "Le prénom est requis").max(100),
+  birthDate: z.string().datetime("Date de naissance invalide"),
+  birthPlace: z.string().min(1, "Le lieu de naissance est requis"),
+  address: z.string().min(1, "L'adresse est requise"),
+  issuePlace: z.string().min(1, "Le lieu de délivrance est requis"),
+  issueDate: z.string().datetime("Date de délivrance invalide"),
+  cinNumber: z.string().min(1, "Le numéro de CIN est requis").max(20).regex(/^[A-Z0-9-]+$/, "Format de CIN invalide (ex: AA-123456)"),
+  cinUploadFrontUrl: z.string().url("URL front CIN invalide").optional().or(z.literal('')),
+  cinUploadBackUrl: z.string().url("URL back CIN invalide").optional().or(z.literal('')),
+  status: z.enum(['pending', 'verified', 'rejected', 'duplicate', 'suspicious']).default('pending'),
+  notes: z.string().optional().default(""),
+}).omit({
+  id: true,
+  userId: true, // Fourni par le contexte (user à vérifier)
+  adminId: true, // Auto-set à l'admin courant
+  verifiedAt: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  userId: z.string().min(1, "L'utilisateur est requis"),
+  adminId: z.string().min(1, "L'admin est requis"),
+});
+
+// ✅ AJOUTÉ: Schéma pour la mise à jour d'une vérification CIN (ex: changer status après review)
+export const updateCinVerificationSchema = z.object({
+  lastName: z.string().min(1).max(100).optional(),
+  firstName: z.string().min(1).max(100).optional(),
+  birthDate: z.string().datetime().optional(),
+  birthPlace: z.string().min(1).optional(),
+  address: z.string().min(1).optional(),
+  issuePlace: z.string().min(1).optional(),
+  issueDate: z.string().datetime().optional(),
+  cinNumber: z.string().min(1).max(20).regex(/^[A-Z0-9-]+$/, "Format de CIN invalide").optional(),
+  status: z.enum(['pending', 'verified', 'rejected', 'duplicate', 'suspicious']).optional(),
+  adminId: z.string().optional(),
+  verifiedAt: z.string().datetime().optional(),
+  notes: z.string().optional(),
+});
+
 export const activityLogSchema = z.object({
   userId: z.string().optional(),
   action: z.string().min(1, "L'action est requise"),
@@ -366,6 +460,8 @@ export type Liberer = typeof liberer.$inferSelect;
 export type InsertLiberer = z.infer<typeof insertLibererSchema>;
 export type LibererComment = typeof libererComments.$inferSelect;
 export type InsertLibererComment = z.infer<typeof insertLibererCommentSchema>;
+export type CinVerification = typeof cinVerifications.$inferSelect;
+export type InsertCinVerification = z.infer<typeof insertCinVerificationSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertActivityLog = typeof activityLogs.$inferInsert;
 export type Session = typeof sessions.$inferSelect;

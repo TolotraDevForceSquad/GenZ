@@ -818,7 +818,7 @@ export default function MapView({
                         {alertComments.map((comment: any) => (
                           <div key={comment.id} className="flex gap-3 p-3 bg-gray-800 rounded-xl border border-gray-700">
                             <img
-                              src={comment.user?.avatar || 'http://localhost:5005/uploads/icon-user.png'}
+                              src={comment.user?.avatar || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
                               alt={comment.user?.name}
                               className="w-10 h-10 rounded-full object-cover"
                             />

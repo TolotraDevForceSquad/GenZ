@@ -6,7 +6,57 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
-import { Upload, Shield, CheckCircle, User, Phone, Mail, Camera, MapPin, Trash2, AlertCircle, Edit } from "lucide-react";
+import { useQueryClient } from '@tanstack/react-query'; // ✅ AJOUTÉ: Import pour invalider les queries
+import { Upload, Shield, CheckCircle, User, Phone, Mail, Camera, MapPin, Trash2, AlertCircle, Edit, ChevronDown } from "lucide-react";
+
+type Location = {
+  nom: string;
+  latitude: number;
+  longitude: number;
+};
+
+const regions = [
+  "Diana",
+  "Sava",
+  "Itasy",
+  "Analamanga",
+  "Vakinankaratra",
+  "Bongolava",
+  "Sofia",
+  "Boeny",
+  "Betsiboka",
+  "Melaky",
+  "Alaotra Mangoro",
+  "Atsinanana",
+  "Analanjirofo",
+  "Atsimo-Atsinanana",
+  "Vatovavy",
+  "Fitovinany",
+  "Atsimo-Andrefana",
+  "Androy",
+  "Anosy",
+  "Andrefana",
+  "Menabe",
+  "Amoron'i Mania",
+  "Haute Matsiatra",
+  "Ihorombe"
+];
+
+const getRegionFileName = (region: string): string => {
+  return region
+    .toLowerCase()
+    .replace(/['\s]/g, '_')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+};
+
+const searchLocations = (query: string, locations: Location[]): Location[] => {
+  if (!query.trim()) return [];
+  const lowerQuery = query.toLowerCase();
+  return locations.filter(location => 
+    location.nom.toLowerCase().includes(lowerQuery)
+  ).slice(0, 10);
+};
 
 interface ProfilePageProps {
     token: string; // Token = user.id, passé depuis App.tsx
@@ -27,6 +77,7 @@ interface FullUser {
     lastName?: string;
     latitude?: number;
     longitude?: number;
+    region?: string;
     cinUploadedFront?: boolean;
     cinUploadedBack?: boolean;
     cinUploadFrontUrl?: string;
@@ -40,6 +91,7 @@ interface FullUser {
 }
 
 export default function ProfilePage({ token }: ProfilePageProps) {
+    const queryClient = useQueryClient(); // ✅ AJOUTÉ: Instance pour invalider les queries globales
     const [user, setUser] = useState<FullUser | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -52,10 +104,18 @@ export default function ProfilePage({ token }: ProfilePageProps) {
         neighborhood: '',
         latitude: '',
         longitude: '',
+        region: '',
     });
+    const [avatarVersion, setAvatarVersion] = useState(0);
+    const [cinFrontVersion, setCinFrontVersion] = useState(0);
+    const [cinBackVersion, setCinBackVersion] = useState(0);
+    const [showRegionDropdown, setShowRegionDropdown] = useState(false);
+    const [selectedRegion, setSelectedRegion] = useState<string>('');
+    const [regionLocations, setRegionLocations] = useState<Location[]>([]);
+    const [suggestions, setSuggestions] = useState<Location[]>([]);
 
     // ✅ AJOUTÉ: Base URL pour les images CIN et avatar (backend sur port 5005)
-    const BASE_URL = 'http://localhost:5005';
+    const BASE_URL = window.location.origin;
 
     // LOGIQUE INCHANGÉE
     const refetchUser = async () => {
@@ -82,7 +142,9 @@ export default function ProfilePage({ token }: ProfilePageProps) {
                     neighborhood: data.neighborhood || '',
                     latitude: data.latitude?.toString() || '',
                     longitude: data.longitude?.toString() || '',
+                    region: data.region || '',
                 });
+                setSelectedRegion(data.region || '');
             } else {
                 const errData = await res.json().catch(() => ({}));
                 setError(errData.error || 'Échec de la récupération du profil.');
@@ -94,6 +156,27 @@ export default function ProfilePage({ token }: ProfilePageProps) {
             setIsLoading(false);
         }
     };
+
+    // Charger les données de la région sélectionnée
+    useEffect(() => {
+        if (selectedRegion) {
+            const loadRegionData = async () => {
+                try {
+                    const fileName = getRegionFileName(selectedRegion);
+                    const regionData = await import(`./types/${fileName}.json`);
+                    setRegionLocations(regionData.default || regionData);
+                    setFormData(prev => ({ ...prev, region: selectedRegion }));
+                } catch (error) {
+                    console.error(`Erreur lors du chargement des données pour ${selectedRegion}:`, error);
+                    setRegionLocations([]);
+                }
+            };
+            
+            loadRegionData();
+        } else {
+            setRegionLocations([]);
+        }
+    }, [selectedRegion]);
 
     useEffect(() => {
         refetchUser();
@@ -111,6 +194,7 @@ export default function ProfilePage({ token }: ProfilePageProps) {
             neighborhood: formData.neighborhood || undefined,
             latitude: formData.latitude ? parseFloat(formData.latitude) : undefined,
             longitude: formData.longitude ? parseFloat(formData.longitude) : undefined,
+            region: formData.region || undefined,
         };
 
         try {
@@ -125,6 +209,8 @@ export default function ProfilePage({ token }: ProfilePageProps) {
             if (res.ok) {
                 // ✅ MODIFIÉ: Recharger les données après mise à jour pour s'assurer de la cohérence
                 await refetchUser();
+                // ✅ AJOUTÉ: Invalider la query currentUser pour propager les changements partout
+                queryClient.invalidateQueries({ queryKey: ['currentUser'] });
                 setIsEditing(false);
             } else {
                 const errData = await res.json().catch(() => ({}));
@@ -152,6 +238,14 @@ export default function ProfilePage({ token }: ProfilePageProps) {
             if (res.ok) {
                 const data = await res.json();
                 setUser(data.user);
+                // ✅ AJOUTÉ: Incrémente la version pour le côté concerné
+                if (side === 'front') {
+                    setCinFrontVersion(prev => prev + 1);
+                } else {
+                    setCinBackVersion(prev => prev + 1);
+                }
+                // ✅ AJOUTÉ: Invalider la query pour propager les changements (ex: hasCIN)
+                queryClient.invalidateQueries({ queryKey: ['currentUser'] });
                 e.target.value = '';
             } else {
                 const errData = await res.json().catch(() => ({}));
@@ -182,6 +276,14 @@ export default function ProfilePage({ token }: ProfilePageProps) {
                 const data = await res.json();
                 console.log('Delete response user:', data.user); // ✅ AJOUTÉ: Log réponse
                 setUser(data.user);
+                // ✅ AJOUTÉ: Incrémente la version pour forcer le re-rendu (même si URL null)
+                if (side === 'front') {
+                    setCinFrontVersion(prev => prev + 1);
+                } else {
+                    setCinBackVersion(prev => prev + 1);
+                }
+                // ✅ AJOUTÉ: Invalider la query pour propager les changements (ex: hasCIN)
+                queryClient.invalidateQueries({ queryKey: ['currentUser'] });
             } else {
                 const errData = await res.json().catch(() => ({}));
                 setError(errData.error || `Échec de la suppression du ${side === 'front' ? 'recto' : 'verso'}.`);
@@ -214,6 +316,9 @@ export default function ProfilePage({ token }: ProfilePageProps) {
             if (res.ok) {
                 const data = await res.json();
                 setUser(data.user); // Met à jour avec le nouvel avatar (chemin /uploads/avatar_... rempli par backend)
+                setAvatarVersion(prev => prev + 1); // ✅ AJOUTÉ: Incrémente la version pour bypasser le cache
+                // ✅ AJOUTÉ: Invalider la query pour propager le nouvel avatar partout
+                queryClient.invalidateQueries({ queryKey: ['currentUser'] });
                 e.target.value = '';
                 console.log('Avatar uploadé avec succès:', data.user.avatar);
             } else {
@@ -240,6 +345,8 @@ export default function ProfilePage({ token }: ProfilePageProps) {
                 },
             });
             if (res.ok) {
+                // ✅ AJOUTÉ: Invalider avant redirection (pour cohérence, même si on redirige)
+                queryClient.invalidateQueries({ queryKey: ['currentUser'] });
                 alert('Votre compte a été supprimé avec succès. Vous allez être redirigé vers la page d\'accueil.');
                 // Redirection vers la page d'accueil ou de connexion (ajustez selon votre routing)
                 window.location.href = '/';
@@ -251,6 +358,39 @@ export default function ProfilePage({ token }: ProfilePageProps) {
             console.error('Erreur delete profil:', err);
             setError('Erreur de connexion lors de la suppression du compte.');
         }
+    };
+
+    const handleNeighborhoodChange = (value: string) => {
+        setFormData(prev => ({ ...prev, neighborhood: value }));
+        const newSuggestions = searchLocations(value, regionLocations);
+        setSuggestions(newSuggestions);
+    };
+
+    const selectLocation = (location: Location) => {
+        setFormData(prev => ({
+            ...prev,
+            neighborhood: location.nom,
+            latitude: location.latitude.toString(),
+            longitude: location.longitude.toString()
+        }));
+        setSuggestions([]);
+    };
+
+    const handleNeighborhoodBlur = () => {
+        setTimeout(() => setSuggestions([]), 200);
+    };
+
+    const handleRegionSelect = (region: string) => {
+        setSelectedRegion(region);
+        setShowRegionDropdown(false);
+        // Réinitialiser les données de localisation quand la région change
+        setFormData(prev => ({
+            ...prev,
+            region: region,
+            neighborhood: '',
+            latitude: '',
+            longitude: ''
+        }));
     };
 
     // LOGIQUE INCHANGÉE
@@ -286,9 +426,13 @@ export default function ProfilePage({ token }: ProfilePageProps) {
 
     const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('fr-FR');
 
-    const getFullCINUrl = (relativeUrl?: string) => relativeUrl ? `${BASE_URL}${relativeUrl}` : undefined;
+    const getFullCINUrl = (relativeUrl?: string, side: 'front' | 'back') => {
+        const version = side === 'front' ? cinFrontVersion : cinBackVersion;
+        return relativeUrl ? `${BASE_URL}${relativeUrl}?v=${version}` : undefined;
+    };
 
-    const getFullAvatarUrl = (relativeUrl?: string) => relativeUrl ? `${BASE_URL}${relativeUrl}` : undefined;
+    const getFullAvatarUrl = (relativeUrl?: string) => 
+        relativeUrl ? `${BASE_URL}${relativeUrl}?v=${avatarVersion}` : undefined;
 
     // ✅ MODIFIÉ: CINSlot optimisé pour le mobile/dark mode
     const CINSlot = ({ side, label, isPending = false }: { side: 'front' | 'back'; label: string; isPending?: boolean }) => {
@@ -313,7 +457,7 @@ export default function ProfilePage({ token }: ProfilePageProps) {
                 {hasUrl ? (
                     <div className="group relative w-full overflow-hidden rounded-xl border border-zinc-700 shadow-lg">
                         <img
-                            src={getFullCINUrl(url)}
+                            src={getFullCINUrl(url, side)}
                             alt={`CIN ${sideLabel}`}
                             className="w-full h-40 object-cover rounded-xl transition-transform duration-300 group-hover:scale-[1.03]"
                         />
@@ -363,8 +507,8 @@ export default function ProfilePage({ token }: ProfilePageProps) {
     return (
         <div className="min-h-screen bg-[#161313] text-white">
             {/* Header */}
-            <div className='flex flex-col items-center mt-6 px-4 sm:px-6 text-center'>
-                <h1 className="text-3xl font-extrabold text-yellow-400 tracking-wider">Mon Profil</h1>
+            <div className='flex flex-col items-center px-4 sm:px-6 text-center'>
+                <h1 className="text-3xl font-extrabold text-yellow-400 tracking-wider mt-6">Mon Profil</h1>
                 <p className="text-zinc-400 font-mono text-sm">
                     Gérez vos informations personnelles et votre statut de vérification.
                 </p>
@@ -516,19 +660,86 @@ export default function ProfilePage({ token }: ProfilePageProps) {
                                     </div>
                                 </div>
 
-                                {/* Champ Quartier */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="neighborhood" className="text-gray-300">Quartier</Label>
+                                {/* Sélecteur de Région */}
+                                <div className="space-y-2 relative">
+                                    <Label htmlFor="region" className="text-gray-300">Région</Label>
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            disabled={!isEditing}
+                                            className="w-full flex items-center justify-between p-3 bg-zinc-700/50 border border-zinc-700 rounded-md text-white text-left hover:border-yellow-500 focus:border-yellow-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                            onClick={() => isEditing && setShowRegionDropdown(!showRegionDropdown)}
+                                        >
+                                            <span>{selectedRegion || "Choisissez votre région"}</span>
+                                            <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${showRegionDropdown ? 'rotate-180' : ''}`} />
+                                        </button>
+                                        
+                                        {isEditing && showRegionDropdown && (
+                                            <div className="absolute z-50 w-full mt-1 bg-zinc-800 border border-zinc-600 rounded-md shadow-lg max-h-60 overflow-auto">
+                                                {regions.map((region) => (
+                                                    <div
+                                                        key={region}
+                                                        onClick={() => handleRegionSelect(region)}
+                                                        className="p-3 cursor-pointer hover:bg-yellow-500 hover:text-black text-sm border-b border-zinc-700 last:border-b-0 transition-colors"
+                                                    >
+                                                        {region}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-gray-500">
+                                        Sélectionnez votre région pour charger les localités
+                                        {selectedRegion && (
+                                            <span className="block mt-1 text-gray-400">
+                                                Fichier chargé: <code>{getRegionFileName(selectedRegion)}.json</code>
+                                            </span>
+                                        )}
+                                    </p>
+                                </div>
+
+                                {/* Quartier (Full width pour les suggestions) */}
+                                <div className="space-y-2 relative">
+                                    <Label htmlFor="neighborhood" className="text-gray-300">Quartier/Localité</Label>
                                     <div className="relative">
                                         <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                                         <Input
                                             id="neighborhood"
+                                            type="text"
+                                            autoComplete="off"
+                                            placeholder={
+                                                selectedRegion 
+                                                    ? "Recherchez votre quartier/localité" 
+                                                    : "Veuillez d'abord sélectionner une région"
+                                            }
+                                            className="pl-10 bg-zinc-700/50 border-zinc-700 text-white focus:border-yellow-500 disabled:opacity-50 focus:bg-zinc-700 focus:ring-yellow-500"
                                             value={formData.neighborhood}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, neighborhood: e.target.value }))}
+                                            onChange={(e) => isEditing && handleNeighborhoodChange(e.target.value)}
+                                            onBlur={handleNeighborhoodBlur}
                                             disabled={!isEditing}
-                                            className="pl-10 bg-zinc-700/50 border-zinc-700 text-white placeholder-gray-500 focus:bg-zinc-700 focus:ring-yellow-500"
                                         />
                                     </div>
+                                    {isEditing && suggestions.length > 0 && formData.neighborhood && (
+                                        <ul className="absolute z-50 w-full bg-zinc-700 border border-yellow-500/50 rounded-md shadow-lg mt-1 max-h-60 overflow-auto">
+                                            {suggestions.map((location) => (
+                                                <li
+                                                    key={location.nom}
+                                                    onClick={() => selectLocation(location)}
+                                                    className="p-3 cursor-pointer hover:bg-yellow-500 hover:text-black text-sm border-b border-zinc-600 last:border-b-0"
+                                                >
+                                                    <div className="font-medium text-white hover:text-black">{location.nom}</div>
+                                                    <div className="text-xs text-gray-400 hover:text-black">
+                                                        Lat: {location.latitude}, Lng: {location.longitude}
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    <p className="text-xs text-gray-500">
+                                        {selectedRegion 
+                                            ? `Recherchez votre quartier/localité dans ${selectedRegion} (${suggestions.length} résultats)` 
+                                            : "Veuillez sélectionner une région pour activer la recherche"}
+                                    </p>
                                 </div>
 
                                 {/* Champs Localisation (Latitude/Longitude) */}
