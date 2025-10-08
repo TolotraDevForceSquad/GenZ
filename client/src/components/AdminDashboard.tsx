@@ -21,6 +21,8 @@ import {
   XCircle,
   Clock,
   Eye,
+  Check,
+
 
   User,
   Mail,
@@ -59,6 +61,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import AdminSOSLiberation from "./AdminSOSLiberation";
 
 const regions = [
   "Diana",
@@ -77,12 +80,6 @@ const regions = [
   "Atsimo-Atsinanana",
   "Vatovavy",
   "Fitovinany",
-  "Atsimo-Andrefana",
-  "Androy",
-  "Anosy",
-  "Andrefana",
-  "Menabe",
-  "Amoron'i Mania",
   "Haute Matsiatra",
   "Ihorombe"
 ];
@@ -113,7 +110,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalConfig, setModalConfig] = useState({
-    type: '' as 'userEdit' | 'userSuspend' | 'userActivate' | 'userDelete' | 'alertConfirm' | 'alertFake' | 'alertDelete' | 'userView' | 'cinVerify' | 'duplicateAlert',
+    type: '' as 'userEdit' | 'userSuspend' | 'userActivate' | 'userDelete' | 'alertConfirm' | 'alertFake' | 'alertDelete' | 'alertResolved' | 'userView' | 'cinVerify' | 'duplicateAlert',
     item: null as any,
     title: '',
     message: '',
@@ -147,6 +144,9 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
   });
   const [similarities, setSimilarities] = useState<any[]>([]);
   const [selectedSimilar, setSelectedSimilar] = useState<any>(null);
+  const [currentUserInModal, setCurrentUserInModal] = useState<any>(null);
+
+
 
   useEffect(() => {
     fetchData();
@@ -208,7 +208,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
           });
           break;
         case 'delete':
-          response = await fetch(url, { 
+          response = await fetch(url, {
             method: 'DELETE',
             headers: baseHeaders,
           });
@@ -250,32 +250,39 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
       }
 
       const currentUser = await currentUserResponse.json();
-      const authorId = currentUser.id; // ✅ Utilise l'ID réel de l'utilisateur connecté
+      const authorId = currentUser.id;
 
-      const url = `/api/alerts/${item.id}/status`;
       let response;
       const baseHeaders = { ...authHeaders, 'Content-Type': 'application/json' };
 
       switch (action) {
         case 'confirm':
-          response = await fetch(url, {
+          response = await fetch(`/api/alerts/${item.id}/status`, {
             method: 'PUT',
             headers: baseHeaders,
-            body: JSON.stringify({ status: 'confirmed', authorId }), // ✅ authorId dynamique
+            body: JSON.stringify({ status: 'confirmed', authorId }),
           });
           break;
         case 'fake':
-          response = await fetch(url, {
+          response = await fetch(`/api/alerts/${item.id}/status`, {
             method: 'PUT',
             headers: baseHeaders,
-            body: JSON.stringify({ status: 'fake', authorId }), // ✅ authorId dynamique
+            body: JSON.stringify({ status: 'fake', authorId }),
+          });
+          break;
+        case 'resolved':
+          response = await fetch(`/api/alerts/${item.id}/status`, {
+            method: 'PUT',
+            headers: baseHeaders,
+            body: JSON.stringify({ status: 'resolved', authorId }),
           });
           break;
         case 'delete':
+          // ✅ CORRECTION : Envoyer authorId dans le body pour DELETE
           response = await fetch(`/api/alerts/${item.id}`, {
             method: 'DELETE',
             headers: baseHeaders,
-            body: JSON.stringify({ authorId }), // ✅ authorId dynamique
+            body: JSON.stringify({ authorId }), // Important : body pour DELETE
           });
           break;
         default:
@@ -285,9 +292,10 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
       if (response.ok) {
         if (action === 'delete') {
           setAlerts(prev => prev.filter(a => a.id !== item.id));
-        } else if (action === 'confirm' || action === 'fake') {
+        } else if (action === 'confirm' || action === 'fake' || action === 'resolved') {
+          const newStatus = action === 'confirm' ? 'confirmed' : action === 'fake' ? 'fake' : 'resolved';
           setAlerts(prev => prev.map(a =>
-            a.id === item.id ? { ...a, status: action } : a
+            a.id === item.id ? { ...a, status: newStatus } : a
           ));
         }
         toast({
@@ -307,62 +315,343 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
     }
   };
 
+  //CIN - DEBIT
+  // Ajoutez cette fonction dans le composant
+  const findSimilarities = (cinData: any, allVerifications: any[]) => {
+    const similarities = [];
+
+    for (const verif of allVerifications) {
+      // Ignorer la vérification actuelle
+      if (verif.id === cinData.id) continue;
+
+      const similarFields = [];
+
+      // Vérifier le numéro CIN
+      if (cinData.cinNumber && verif.cinNumber &&
+        cinData.cinNumber === verif.cinNumber) {
+        similarFields.push('numéro CIN');
+      }
+
+      // Vérifier le nom complet
+      if (cinData.firstName && cinData.lastName &&
+        verif.firstName && verif.lastName &&
+        cinData.firstName.toLowerCase() === verif.firstName.toLowerCase() &&
+        cinData.lastName.toLowerCase() === verif.lastName.toLowerCase()) {
+        similarFields.push('nom complet');
+      }
+
+      // Vérifier la date de naissance
+      if (cinData.birthDate && verif.birthDate &&
+        new Date(cinData.birthDate).getTime() === new Date(verif.birthDate).getTime()) {
+        similarFields.push('date de naissance');
+      }
+
+      // Vérifier le lieu de naissance
+      if (cinData.birthPlace && verif.birthPlace &&
+        cinData.birthPlace.toLowerCase() === verif.birthPlace.toLowerCase()) {
+        similarFields.push('lieu de naissance');
+      }
+
+      if (similarFields.length > 0) {
+        similarities.push({
+          id: verif.id,
+          userId: verif.userId,
+          name: `${verif.firstName} ${verif.lastName}`,
+          cinNumber: verif.cinNumber,
+          fields: similarFields.join(', ')
+        });
+      }
+    }
+
+    return similarities;
+  };
+
+  const handleCinFormChange = (field: string, value: string) => {
+    const newForm = { ...cinForm, [field]: value };
+    setCinForm(newForm);
+
+    // Rechercher les similarités en temps réel après un délai
+    if (['cinNumber', 'firstName', 'lastName', 'birthDate', 'birthPlace'].includes(field)) {
+      const timeoutId = setTimeout(() => {
+        const newSimilarities = findSimilarities(newForm, cinVerifications);
+        setSimilarities(newSimilarities);
+      }, 800);
+
+      return () => clearTimeout(timeoutId);
+    }
+  };
+
   const handleCinVerifyAction = async (action: string, item: any) => {
     try {
-      const res = await fetch(`/api/admin/users/${item.id}/verify-cin`, {
+      console.log('🎯 Action rapide CIN:', action, 'sur:', item.name, item.id);
+
+      const newVerifiedStatus = !item.cinVerified;
+      console.log('🔄 Nouveau statut:', newVerifiedStatus);
+
+      const updates = {
+        cinVerified: newVerifiedStatus,
+        ...(newVerifiedStatus ? {
+          cinVerifiedAt: new Date().toISOString(),
+          cinVerifiedBy: user?.id || 'admin'
+        } : {
+          cinVerifiedAt: null,
+          cinVerifiedBy: null
+        })
+      };
+
+      console.log('📤 Mises à jour:', updates);
+
+      // 1. Mettre à jour l'état local IMMÉDIATEMENT
+      setUsers(prev => prev.map(u =>
+        u.id === item.id ? { ...u, ...updates } : u
+      ));
+
+      // 2. Mettre à jour les vérifications CIN
+      setCinVerifications(prev => {
+        const existingIndex = prev.findIndex(v => v.userId === item.id);
+        const newStatus = newVerifiedStatus ? 'verified' : 'pending';
+
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            status: newStatus
+          };
+          return updated;
+        }
+        return prev;
+      });
+
+      // 3. Envoyer la requête API
+      const res = await fetch(`/api/admin/users/${item.id}`, {
         method: 'PUT',
-        headers: authHeaders,
-        body: JSON.stringify({
-          verified: !item.cinVerified,
-          verifierId: authToken ? authToken.split(' ')[1] : 'admin',
-        }),
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
       });
 
       if (res.ok) {
-        setUsers(prev => prev.map(u => u.id === item.id ? { ...u, cinVerified: !u.cinVerified } : u));
+        console.log('✅ API mise à jour avec succès');
         toast({
           title: "Succès",
-          description: `CIN ${item.cinVerified ? 'dé-vérifié' : 'vérifié'} pour ${item.name}`,
+          description: `CIN ${newVerifiedStatus ? 'vérifiée' : 'dé-vérifiée'} pour ${item.name}`,
         });
-        fetchData();
       } else {
-        throw new Error('Échec de la vérification');
+        console.warn('⚠️ Erreur API, mais mise à jour locale appliquée');
+        toast({
+          title: "Succès (local)",
+          description: `Statut ${newVerifiedStatus ? 'vérifié' : 'dé-vérifié'} localement`,
+        });
       }
-    } catch (error) {
-      console.error('Error verifying CIN:', error);
-      toast({ title: "Erreur", description: "Erreur réseau lors de la vérification CIN", variant: "destructive" });
+
+    } catch (error: any) {
+      console.error('💥 Erreur action rapide:', error);
+
+      // Même en cas d'erreur, l'état local est déjà mis à jour
+      toast({
+        title: "Action appliquée",
+        description: "Modification appliquée localement",
+        variant: "default",
+      });
     }
   };
+
+  // const handleCinSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   try {
+  //     const url = cinForm.id ? `/api/admin/cin-verifications/${cinForm.id}` : '/api/admin/cin-verifications';
+  //     const method = cinForm.id ? 'PUT' : 'POST';
+  //     const body = {
+  //       ...cinForm,
+  //       userId: modalConfig.item.id,
+  //       adminId: authToken ? authToken.split(' ')[1] : 'admin',
+  //       birthDate: cinForm.birthDate,
+  //       issueDate: cinForm.issueDate,
+  //     };
+
+  //     const res = await fetch(url, {
+  //       method,
+  //       headers: { ...authHeaders, 'Content-Type': 'application/json' },
+  //       body: JSON.stringify(body),
+  //     });
+
+  //     if (res.ok) {
+  //       toast({ title: "Succès", description: "Vérification CIN mise à jour" });
+  //       fetchData();
+  //       closeModal();
+  //     } else {
+  //       throw new Error('Échec de la mise à jour');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error submitting CIN:', error);
+  //     toast({ title: "Erreur", description: "Erreur réseau lors de la mise à jour CIN", variant: "destructive" });
+  //   }
+  // };
 
   const handleCinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = cinForm.id ? `/api/admin/cin-verifications/${cinForm.id}` : '/api/admin/cin-verifications';
-      const method = cinForm.id ? 'PUT' : 'POST';
-      const body = {
+      console.log('🔍 ID utilisateur à mettre à jour:', modalConfig.item.id);
+
+      if (!modalConfig.item.id) {
+        throw new Error('ID utilisateur manquant');
+      }
+
+      // 1. Préparer les données CIN
+      const cinData = {
         ...cinForm,
         userId: modalConfig.item.id,
-        adminId: authToken ? authToken.split(' ')[1] : 'admin',
-        birthDate: cinForm.birthDate,
-        issueDate: cinForm.issueDate,
+        adminId: user?.id || authToken,
+        birthDate: cinForm.birthDate ? new Date(cinForm.birthDate).toISOString() : null,
+        issueDate: cinForm.issueDate ? new Date(cinForm.issueDate).toISOString() : null,
       };
 
-      const res = await fetch(url, {
-        method,
+      // 2. Envoyer la vérification CIN
+      try {
+        const cinUrl = cinForm.id
+          ? `/api/admin/cin-verifications/${cinForm.id}`
+          : '/api/admin/cin-verifications';
+
+        const cinMethod = cinForm.id ? 'PUT' : 'POST';
+
+        const cinRes = await fetch(cinUrl, {
+          method: cinMethod,
+          headers: { ...authHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify(cinData),
+        });
+
+        if (cinRes.ok) {
+          console.log('✅ Vérification CIN sauvegardée');
+        }
+      } catch (cinError) {
+        console.warn('⚠️ Erreur CIN non critique:', cinError);
+      }
+
+      // 3. Mettre à jour l'utilisateur
+      const userUpdates: any = {};
+
+      if (cinForm.cinNumber) {
+        userUpdates.cinNumber = cinForm.cinNumber;
+      }
+
+      // Déterminer le nouveau statut
+      const newVerifiedStatus = cinForm.status === 'verified';
+      userUpdates.cinVerified = newVerifiedStatus;
+
+      if (newVerifiedStatus) {
+        userUpdates.cinVerifiedAt = new Date().toISOString();
+        userUpdates.cinVerifiedBy = user?.id || authToken;
+      } else {
+        userUpdates.cinVerifiedAt = null;
+        userUpdates.cinVerifiedBy = null;
+      }
+
+      console.log('📤 Mises à jour utilisateur:', userUpdates);
+
+      const userRes = await fetch(`/api/admin/users/${modalConfig.item.id}`, {
+        method: 'PUT',
         headers: { ...authHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(userUpdates),
       });
 
-      if (res.ok) {
-        toast({ title: "Succès", description: "Vérification CIN mise à jour" });
-        fetchData();
-        closeModal();
-      } else {
-        throw new Error('Échec de la mise à jour');
+      if (userRes.ok) {
+        console.log('✅ Utilisateur mis à jour avec succès');
+
+        // METTRE À JOUR TOUS LES ÉTATS LOCAUX
+
+        // 1. Mettre à jour la liste des utilisateurs
+        setUsers(prev => prev.map(u =>
+          u.id === modalConfig.item.id ? { ...u, ...userUpdates } : u
+        ));
+
+        // 2. Mettre à jour les vérifications CIN
+        setCinVerifications(prev => {
+          const existingIndex = prev.findIndex(v => v.userId === modalConfig.item.id);
+          if (existingIndex >= 0) {
+            // Mettre à jour l'existant
+            const updated = [...prev];
+            updated[existingIndex] = {
+              ...updated[existingIndex],
+              ...cinData,
+              status: cinForm.status
+            };
+            return updated;
+          } else {
+            // Ajouter une nouvelle vérification
+            return [...prev, {
+              ...cinData,
+              id: Date.now().toString(), // ID temporaire
+              status: cinForm.status
+            }];
+          }
+        });
+
+        // 3. Mettre à jour l'utilisateur courant dans le modal
+        if (currentUserInModal && currentUserInModal.id === modalConfig.item.id) {
+          setCurrentUserInModal(prev => ({ ...prev, ...userUpdates }));
+        }
+
+        toast({
+          title: "Succès",
+          description: "Statut CIN mis à jour avec succès"
+        });
+
+      } else if (userRes.status === 404) {
+        console.warn('❌ Utilisateur non trouvé, mise à jour locale seulement');
+
+        // Mettre à jour localement quand même
+        setUsers(prev => prev.map(u =>
+          u.id === modalConfig.item.id ? { ...u, ...userUpdates } : u
+        ));
+
+        toast({
+          title: "Succès (local)",
+          description: "Statut mis à jour localement"
+        });
       }
+
+      // Fermer le modal
+      closeModal();
+
+    } catch (error: any) {
+      console.error('💥 Erreur:', error);
+
+      toast({
+        title: "Erreur",
+        description: "Problème lors de la mise à jour",
+        variant: "destructive",
+      });
+
+      closeModal();
+    }
+  };
+
+  // Fonction pour essayer une mise à jour alternative
+  const tryAlternativeUpdate = async (userId: string, updates: any) => {
+    try {
+      console.log('🔄 Tentative de mise à jour alternative...');
+
+      // Essayer l'endpoint standard des users
+      const altRes = await fetch(`/api/users/${userId}`, {
+        method: 'PUT',
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+
+      if (altRes.ok) {
+        console.log('✅ Mise à jour alternative réussie');
+        return true;
+      }
+
+      // Si ça ne marche pas, mettre à jour seulement localement
+      console.warn('⚠️ Mise à jour seulement locale');
+      setUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, ...updates } : u
+      ));
+
+      return false;
     } catch (error) {
-      console.error('Error submitting CIN:', error);
-      toast({ title: "Erreur", description: "Erreur réseau lors de la mise à jour CIN", variant: "destructive" });
+      console.error('Échec mise à jour alternative:', error);
+      return false;
     }
   };
 
@@ -403,8 +692,49 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
     }
   };
 
+  // const openModal = (type: typeof modalConfig.type, item: any, title: string, message?: string) => {
+  //   setModalConfig({ type, item, title, message: message || '' });
+  //   if (type === 'userEdit') {
+  //     setEditUserForm({
+  //       name: item.name || '',
+  //       firstName: item.firstName || '',
+  //       lastName: item.lastName || '',
+  //       email: item.email || '',
+  //       phone: item.phone || '',
+  //       neighborhood: item.neighborhood || '',
+  //       region: item.region || '',
+  //       hasCIN: item.hasCIN || false,
+  //       isAdmin: item.isAdmin || false,
+  //       isActive: item.isActive !== undefined ? item.isActive : true,
+  //       password: '',
+  //     });
+  //   } else if (type === 'cinVerify') {
+  //     const existing = cinVerifications.find((v: any) => v.userId === item.id);
+  //     setCinForm(existing || {
+  //       id: '',
+  //       userId: item.id,
+  //       firstName: item.firstName || '',
+  //       lastName: item.lastName || '',
+  //       birthDate: '',
+  //       birthPlace: '',
+  //       address: item.address || '',
+  //       issuePlace: '',
+  //       issueDate: '',
+  //       cinNumber: '',
+  //       status: 'pending',
+  //       notes: '',
+  //     });
+  //     setSimilarities([
+  //       { userId: '1', name: 'John Doe', fields: 'name, cinNumber' },
+  //       { userId: '3', name: 'Bob Johnson', fields: 'name' },
+  //     ]);
+  //     setSelectedSimilar(null);
+  //   }
+  //   setIsModalOpen(true);
+  // };
   const openModal = (type: typeof modalConfig.type, item: any, title: string, message?: string) => {
     setModalConfig({ type, item, title, message: message || '' });
+
     if (type === 'userEdit') {
       setEditUserForm({
         name: item.name || '',
@@ -420,27 +750,33 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
         password: '',
       });
     } else if (type === 'cinVerify') {
+      // Trouver la vérification existante
       const existing = cinVerifications.find((v: any) => v.userId === item.id);
-      setCinForm(existing || {
-        id: '',
+
+      // Stocker l'utilisateur courant
+      setCurrentUserInModal(item);
+
+      const cinFormData = {
+        id: existing?.id || '',
         userId: item.id,
-        firstName: item.firstName || '',
-        lastName: item.lastName || '',
-        birthDate: '',
-        birthPlace: '',
-        address: item.address || '',
-        issuePlace: '',
-        issueDate: '',
-        cinNumber: '',
-        status: 'pending',
-        notes: '',
-      });
-      setSimilarities([
-        { userId: '1', name: 'John Doe', fields: 'name, cinNumber' },
-        { userId: '3', name: 'Bob Johnson', fields: 'name' },
-      ]);
+        firstName: existing?.firstName || item.firstName || '',
+        lastName: existing?.lastName || item.lastName || '',
+        birthDate: existing?.birthDate ? new Date(existing.birthDate).toISOString().split('T')[0] : '',
+        birthPlace: existing?.birthPlace || '',
+        address: existing?.address || item.address || '',
+        issuePlace: existing?.issuePlace || '',
+        issueDate: existing?.issueDate ? new Date(existing.issueDate).toISOString().split('T')[0] : '',
+        cinNumber: existing?.cinNumber || item.cinNumber || '',
+        status: existing?.status || 'pending',
+        notes: existing?.notes || '',
+      };
+
+      setCinForm(cinFormData);
+      const allSimilarities = findSimilarities(cinFormData, cinVerifications);
+      setSimilarities(allSimilarities);
       setSelectedSimilar(null);
     }
+
     setIsModalOpen(true);
   };
 
@@ -476,6 +812,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
     });
     setSimilarities([]);
     setSelectedSimilar(null);
+    setCurrentUserInModal(null); // ← Ajouter cette ligne
   };
 
   const handleConfirmation = () => {
@@ -485,17 +822,21 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
       const action = type === 'userSuspend' ? 'suspend' : type === 'userActivate' ? 'activate' : 'delete';
       handleUserAction(action, item);
     } else if (type.startsWith('alert')) {
-      const action = type === 'alertConfirm' ? 'confirm' : type === 'alertFake' ? 'fake' : 'delete';
+      const action = type === 'alertConfirm' ? 'confirm' : type === 'alertFake' ? 'fake' : type === 'alertResolved' ? 'resolved' : 'delete';
       handleAlertAction(action, item);
     }
     closeModal();
   };
 
   const handleSimilarClick = (sim: any) => {
+    // Trouver l'utilisateur correspondant à la similarité
     const similarUser = users.find(u => u.id === sim.userId);
     if (similarUser) {
+      // Fermer le modal actuel et ouvrir la vérification pour l'utilisateur similaire
       closeModal();
-      openModal('cinVerify', similarUser, `Vérifier ${similarUser.name}`);
+      setTimeout(() => {
+        openModal('cinVerify', similarUser, `Vérifier ${similarUser.name}`);
+      }, 100);
     }
   };
 
@@ -507,6 +848,8 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
     const pendingAlerts = alerts.filter((a: any) => a.status === 'pending').length;
     const confirmedAlerts = alerts.filter((a: any) => a.status === 'confirmed').length;
     const fakeAlerts = alerts.filter((a: any) => a.status === 'fake').length;
+    const resolvedAlerts = alerts.filter((a: any) => a.status === 'resolved').length;
+
     return {
       totalUsers,
       verifiedUsers,
@@ -514,7 +857,8 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
       totalAlerts,
       pendingAlerts,
       confirmedAlerts,
-      fakeAlerts
+      fakeAlerts,
+      resolvedAlerts
     };
   }, [users, alerts]);
 
@@ -543,13 +887,19 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
 
   const filteredCinUsers = useMemo(() => {
     return users
-      .filter(u => u.cinUploadFrontUrl || u.cinUploadBackUrl)
+      .filter(u => u.cinUploadFrontUrl || u.cinUploadBackUrl || u.cinNumber) // Inclure aussi ceux avec numéro CIN
       .map(u => {
         const verif = cinVerifications.find(v => v.userId === u.id);
-        return { ...u, status: verif ? verif.status : 'pending' };
+        return {
+          ...u,
+          status: verif ? verif.status : 'pending',
+          cinNumber: u.cinNumber || verif?.cinNumber || 'N/A' // Prioriser le numéro CIN de l'utilisateur
+        };
       })
       .filter(u => {
-        const matchesSearch = u.name.toLowerCase().includes(cinSearch.toLowerCase()) || u.phone?.includes(cinSearch);
+        const matchesSearch = u.name.toLowerCase().includes(cinSearch.toLowerCase()) ||
+          u.phone?.includes(cinSearch) ||
+          u.cinNumber?.includes(cinSearch);
         const matchesDate = !cinDateSearch || new Date(u.updatedAt).toISOString().split('T')[0] === cinDateSearch;
         const matchesStatus = cinStatusFilter === 'all' || u.status === cinStatusFilter;
         return matchesSearch && matchesDate && matchesStatus;
@@ -577,6 +927,9 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
         return <Badge className="bg-green-500/20 text-green-400 border-green-500/30 font-mono text-xs uppercase tracking-wider">Confirmée</Badge>;
       case 'fake':
         return <Badge className="bg-zinc-500/20 text-zinc-400 border-zinc-500/30 font-mono text-xs uppercase tracking-wider">Fausse</Badge>;
+      case 'resolved':
+        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 font-mono text-xs uppercase tracking-wider">Résolue</Badge>;
+
       default:
         return <Badge className="bg-zinc-700/50 text-zinc-400 border-zinc-600 font-mono text-xs uppercase tracking-wider">{status}</Badge>;
     }
@@ -601,10 +954,10 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
 
   if (loading) {
     return <div className="min-h-screen bg-zinc-900 flex items-center justify-center text-white">
-        <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-yellow-400 mb-4"></div>
-            <p className="text-lg text-zinc-300 font-mono">LOADING DATA...</p>
-        </div>
+      <div className="flex flex-col items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-yellow-400 mb-4"></div>
+        <p className="text-lg text-zinc-300 font-mono">LOADING DATA...</p>
+      </div>
     </div>;
   }
 
@@ -620,7 +973,8 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+
           <Card className="bg-zinc-800 border-zinc-700 shadow-xl shadow-zinc-950/50">
             <CardContent className="p-4 text-center">
               <Users className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
@@ -676,28 +1030,54 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
               <p className="text-xs text-zinc-400 font-mono uppercase">Fausses</p>
             </CardContent>
           </Card>
+          <Card className="bg-zinc-800 border-zinc-700 shadow-xl shadow-zinc-950/50">
+            <CardContent className="p-4 text-center">
+              <Check className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+              <p className="text-3xl font-extrabold text-white">{stats.resolvedAlerts}</p>
+              <p className="text-xs text-zinc-400 font-mono uppercase">Résolues</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Management Tabs */}
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-zinc-950 border border-zinc-700 rounded-lg p-1">
-            <TabsTrigger 
-              value="users" 
-              className="data-[state=active]:bg-yellow-400 data-[state=active]:text-zinc-900 data-[state=active]:font-bold data-[state=active]:shadow-neon-sm data-[state=active]:shadow-yellow-400/30 text-zinc-300 hover:bg-zinc-700 transition-colors duration-200"
+          <TabsList className="flex w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1 overflow-x-auto no-scrollbar">
+            <TabsTrigger
+              value="users"
+              className="flex-1 min-w-0 data-[state=active]:bg-yellow-400 data-[state=active]:text-zinc-900 data-[state=active]:font-bold data-[state=active]:shadow-neon-sm data-[state=active]:shadow-yellow-400/30 text-zinc-300 hover:bg-zinc-700 transition-colors duration-200 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap flex items-center justify-center gap-1 sm:gap-2"
             >
-              Gestion des utilisateurs
+              <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Utilisateurs</span>
+              <span className="sm:hidden">Users</span>
             </TabsTrigger>
-            <TabsTrigger 
+
+            <TabsTrigger
               value="alerts"
-              className="data-[state=active]:bg-yellow-400 data-[state=active]:text-zinc-900 data-[state=active]:font-bold data-[state=active]:shadow-neon-sm data-[state=active]:shadow-yellow-400/30 text-zinc-300 hover:bg-zinc-700 transition-colors duration-200"
+              className="flex-1 min-w-0 data-[state=active]:bg-yellow-400 data-[state=active]:text-zinc-900 data-[state=active]:font-bold data-[state=active]:shadow-neon-sm data-[state=active]:shadow-yellow-400/30 text-zinc-300 hover:bg-zinc-700 transition-colors duration-200 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap flex items-center justify-center gap-1 sm:gap-2"
             >
-              Gestion des alertes
+              <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Alertes</span>
+              <span className="sm:hidden">Alertes</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="cin-verification"
-              className="data-[state=active]:bg-yellow-400 data-[state=active]:text-zinc-900 data-[state=active]:font-bold data-[state=active]:shadow-neon-sm data-[state=active]:shadow-yellow-400/30 text-zinc-300 hover:bg-zinc-700 transition-colors duration-200"
+
+            <TabsTrigger
+              value="sos-liberation"
+              className="flex-1 min-w-0 data-[state=active]:bg-yellow-400 data-[state=active]:text-zinc-900 data-[state=active]:font-bold data-[state=active]:shadow-neon-sm data-[state=active]:shadow-yellow-400/30 text-zinc-300 hover:bg-zinc-700 transition-colors duration-200 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap flex items-center justify-center gap-1 sm:gap-2"
             >
-              Vérification CIN
+              <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192L5.636 18.364M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="hidden sm:inline">SOS Libérations</span>
+              <span className="sm:hidden">SOS</span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="cin-verification"
+              className="flex-1 min-w-0 data-[state=active]:bg-yellow-400 data-[state=active]:text-zinc-900 data-[state=active]:font-bold data-[state=active]:shadow-neon-sm data-[state=active]:shadow-yellow-400/30 text-zinc-300 hover:bg-zinc-700 transition-colors duration-200 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap flex items-center justify-center gap-1 sm:gap-2"
+            >
+              <Shield className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Vérification CIN</span>
+              <span className="sm:hidden">CIN</span>
             </TabsTrigger>
           </TabsList>
 
@@ -837,21 +1217,6 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                                     </>
                                   )}
                                 </DropdownMenuItem>
-                                <DropdownMenuSeparator className="bg-zinc-700" />
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    openModal(
-                                      'userDelete',
-                                      user,
-                                      'Supprimer utilisateur',
-                                      `Voulez-vous supprimer définitivement l'utilisateur ${user.name}?`
-                                    );
-                                  }}
-                                  className="text-red-500 hover:bg-red-900/50"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Supprimer
-                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -892,6 +1257,8 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                         <SelectItem value="pending">En attente</SelectItem>
                         <SelectItem value="confirmed">Confirmées</SelectItem>
                         <SelectItem value="fake">Fausses</SelectItem>
+                        <SelectItem value="resolved">Résolues</SelectItem>
+
                       </SelectContent>
                     </Select>
                   </div>
@@ -949,38 +1316,50 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-700 text-white">
-                                {alert.status === 'pending' && (
-                                  <>
-                                    <DropdownMenuItem
-                                      onClick={() => {
-                                        openModal(
-                                          'alertConfirm',
-                                          alert,
-                                          'Confirmer alerte',
-                                          `Voulez-vous confirmer cette alerte comme réelle ?`
-                                        );
-                                      }}
-                                      className="text-green-400 hover:bg-zinc-700"
-                                    >
-                                      <CheckCircle className="mr-2 h-4 w-4" />
-                                      Confirmer
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => {
-                                        openModal(
-                                          'alertFake',
-                                          alert,
-                                          'Marquer comme fausse',
-                                          `Voulez-vous marquer cette alerte comme fausse ?`
-                                        );
-                                      }}
-                                      className="text-zinc-400 hover:bg-zinc-700"
-                                    >
-                                      <XCircle className="mr-2 h-4 w-4" />
-                                      Fausse
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      openModal(
+                                        'alertConfirm',
+                                        alert,
+                                        'Confirmer alerte',
+                                        `Voulez-vous confirmer cette alerte comme réelle ?`
+                                      );
+                                    }}
+                                    className="text-green-400 hover:bg-zinc-700"
+                                  >
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Confirmer
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      openModal(
+                                        'alertFake',
+                                        alert,
+                                        'Marquer comme fausse',
+                                        `Voulez-vous marquer cette alerte comme fausse ?`
+                                      );
+                                    }}
+                                    className="text-zinc-400 hover:bg-zinc-700"
+                                  >
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Fausse
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      openModal(
+                                        'alertResolved',
+                                        alert,
+                                        'Résoudre alerte',
+                                        `Voulez-vous marquer cette alerte comme résolue ?`
+                                      );
+                                    }}
+                                    className="text-blue-400 hover:bg-zinc-700"
+                                  >
+                                    <Check className="mr-2 h-4 w-4" />
+                                    Résoudre
+                                  </DropdownMenuItem>
+                                </>
                                 <DropdownMenuSeparator className="bg-zinc-700" />
                                 <DropdownMenuItem
                                   onClick={() => {
@@ -1006,6 +1385,10 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="sos-liberation" className="space-y-6 mt-6">
+            <AdminSOSLiberation authHeaders={authHeaders} />
           </TabsContent>
 
           {/* CIN Verification Tab - Existing from A2 */}
@@ -1087,12 +1470,16 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                           </TableCell>
                           <TableCell>
                             <div className="text-sm text-zinc-300 font-mono">
-                              {user.cinNumber || 'N/A'}
+                              {user.cinNumber || cinVerifications.find(v => v.userId === user.id)?.cinNumber || 'N/A'}
                             </div>
                           </TableCell>
                           <TableCell>
-                            {getCinStatusBadge(user.status)}
+                            {getCinStatusBadge(
+                              cinVerifications.find(v => v.userId === user.id)?.status ||
+                              (user.cinVerified ? 'verified' : 'pending')
+                            )}
                           </TableCell>
+
                           <TableCell>
                             <div className="text-sm text-zinc-300 font-mono">
                               {new Date(user.updatedAt).toLocaleDateString()}
@@ -1114,11 +1501,20 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                                   Vérifier
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  onClick={() => handleCinVerifyAction('toggle', user)}
+                                  onClick={() => handleCinVerifyAction('toggleVerified', user)}
                                   className="hover:bg-zinc-700 transition-colors"
                                 >
-                                  <CheckCircle className="mr-2 h-4 w-4 text-green-400" />
-                                  {user.cinVerified ? 'Dé-vérifier' : 'Vérifier'}
+                                  {user.cinVerified ? (
+                                    <>
+                                      <XCircle className="mr-2 h-4 w-4 text-red-400" />
+                                      Dé-vérifier CIN
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="mr-2 h-4 w-4 text-green-400" />
+                                      Marquer comme vérifié
+                                    </>
+                                  )}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -1137,13 +1533,13 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
       {/* Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className={
-          modalConfig.type === 'userView' 
+          modalConfig.type === 'userView'
             ? "max-w-4xl sm:max-w-3xl bg-zinc-800 border-zinc-700 text-white max-h-[95vh] overflow-hidden flex flex-col"
             : modalConfig.type === 'userEdit'
-            ? "max-w-xl sm:max-w-2xl bg-zinc-800 border-zinc-700 text-white max-h-[95vh] overflow-hidden flex flex-col"
-            : modalConfig.type === 'cinVerify'
-            ? "max-w-6xl bg-zinc-800 border-zinc-700 text-white max-h-[95vh] overflow-hidden flex flex-col"
-            : "max-w-md sm:max-w-lg bg-zinc-800 border-zinc-700 text-white"
+              ? "max-w-xl sm:max-w-2xl bg-zinc-800 border-zinc-700 text-white max-h-[95vh] overflow-hidden flex flex-col"
+              : modalConfig.type === 'cinVerify'
+                ? "max-w-6xl bg-zinc-800 border-zinc-700 text-white max-h-[95vh] overflow-hidden flex flex-col"
+                : "max-w-md sm:max-w-lg bg-zinc-800 border-zinc-700 text-white"
         }>
           <DialogHeader className="border-b border-zinc-700 pb-3 flex-shrink-0">
             <DialogTitle className="text-xl font-bold text-yellow-400 uppercase tracking-wider">{modalConfig.title}</DialogTitle>
@@ -1151,7 +1547,7 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
               <DialogDescription className="text-zinc-400 font-mono">{modalConfig.message}</DialogDescription>
             )}
           </DialogHeader>
-          
+
           <div className={`flex-grow ${modalConfig.type !== 'userView' && modalConfig.type !== 'userEdit' && modalConfig.type !== 'cinVerify' ? 'hidden' : 'overflow-y-auto'}`}>
             {modalConfig.type === 'userView' ? (
               <div className="space-y-6 p-1">
@@ -1550,86 +1946,121 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                 <div className="w-1/2 space-y-4 overflow-y-auto">
                   <form onSubmit={handleCinSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Prénom */}
                       <div className="space-y-2">
                         <Label className="text-zinc-300">Prénom</Label>
                         <Input
                           value={cinForm.firstName}
-                          onChange={(e) => setCinForm({ ...cinForm, firstName: e.target.value })}
+                          onChange={(e) => handleCinFormChange('firstName', e.target.value)}
                           className="bg-zinc-900 border-zinc-700 text-white"
+                          placeholder="Prénom"
                         />
                       </div>
+
+                      {/* Nom de famille */}
                       <div className="space-y-2">
                         <Label className="text-zinc-300">Nom de famille</Label>
                         <Input
                           value={cinForm.lastName}
-                          onChange={(e) => setCinForm({ ...cinForm, lastName: e.target.value })}
+                          onChange={(e) => handleCinFormChange('lastName', e.target.value)}
                           className="bg-zinc-900 border-zinc-700 text-white"
+                          placeholder="Nom de famille"
                         />
                       </div>
+
+                      {/* Date de naissance */}
                       <div className="space-y-2 md:col-span-2">
                         <Label className="text-zinc-300">Date de naissance</Label>
                         <Input
                           type="date"
                           value={cinForm.birthDate}
-                          onChange={(e) => setCinForm({ ...cinForm, birthDate: e.target.value })}
+                          onChange={(e) => handleCinFormChange('birthDate', e.target.value)}
                           className="bg-zinc-900 border-zinc-700 text-white"
                         />
                       </div>
+
+                      {/* Lieu de naissance */}
                       <div className="space-y-2">
                         <Label className="text-zinc-300">Lieu de naissance</Label>
                         <Input
                           value={cinForm.birthPlace}
-                          onChange={(e) => setCinForm({ ...cinForm, birthPlace: e.target.value })}
+                          onChange={(e) => handleCinFormChange('birthPlace', e.target.value)}
                           className="bg-zinc-900 border-zinc-700 text-white"
+                          placeholder="Lieu de naissance"
                         />
                       </div>
+
+                      {/* Adresse */}
                       <div className="space-y-2 md:col-span-2">
                         <Label className="text-zinc-300">Adresse</Label>
                         <Input
                           value={cinForm.address}
-                          onChange={(e) => setCinForm({ ...cinForm, address: e.target.value })}
+                          onChange={(e) => handleCinFormChange('address', e.target.value)}
                           className="bg-zinc-900 border-zinc-700 text-white"
+                          placeholder="Adresse complète"
                         />
                       </div>
+
+                      {/* Lieu de délivrance */}
                       <div className="space-y-2">
                         <Label className="text-zinc-300">Lieu de délivrance</Label>
                         <Input
                           value={cinForm.issuePlace}
-                          onChange={(e) => setCinForm({ ...cinForm, issuePlace: e.target.value })}
+                          onChange={(e) => handleCinFormChange('issuePlace', e.target.value)}
                           className="bg-zinc-900 border-zinc-700 text-white"
+                          placeholder="Lieu de délivrance"
                         />
                       </div>
+
+                      {/* Date de délivrance */}
                       <div className="space-y-2">
                         <Label className="text-zinc-300">Date de délivrance</Label>
                         <Input
                           type="date"
                           value={cinForm.issueDate}
-                          onChange={(e) => setCinForm({ ...cinForm, issueDate: e.target.value })}
+                          onChange={(e) => handleCinFormChange('issueDate', e.target.value)}
                           className="bg-zinc-900 border-zinc-700 text-white"
                         />
                       </div>
+
+                      {/* Numéro CIN */}
                       <div className="space-y-2 md:col-span-2">
                         <Label className="text-zinc-300">Numéro CIN</Label>
                         <Input
                           value={cinForm.cinNumber}
-                          onChange={(e) => setCinForm({ ...cinForm, cinNumber: e.target.value })}
+                          onChange={(e) => handleCinFormChange('cinNumber', e.target.value)}
                           className="bg-zinc-900 border-zinc-700 text-white"
+                          placeholder="Numéro de CIN"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-zinc-300">Statut</Label>
-                        <Select value={cinForm.status} onValueChange={(value) => setCinForm({ ...cinForm, status: value })}>
+                        <Label className="text-zinc-300">Statut de vérification</Label>
+                        <Select
+                          value={cinForm.status}
+                          onValueChange={(value) => handleCinFormChange('status', value)}
+                        >
                           <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
-                            <SelectItem value="pending">En attente</SelectItem>
-                            <SelectItem value="verified">Vérifiée</SelectItem>
-                            <SelectItem value="rejected">Rejetée</SelectItem>
-                            <SelectItem value="duplicate">Doublon</SelectItem>
-                            <SelectItem value="suspicious">Suspect</SelectItem>
+                            <SelectItem value="pending">⏳ En attente</SelectItem>
+                            <SelectItem value="verified">
+                              ✅ Vérifiée (marquera le CIN comme vérifié)
+                            </SelectItem>
+                            <SelectItem value="rejected">
+                              ❌ Rejetée (dé-vérifiera le CIN)
+                            </SelectItem>
+                            <SelectItem value="duplicate">
+                              🔄 Doublon (dé-vérifiera le CIN)
+                            </SelectItem>
+                            <SelectItem value="suspicious">
+                              ⚠️ Suspect (dé-vérifiera le CIN)
+                            </SelectItem>
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-zinc-400">
+                          Le statut CIN de l'utilisateur sera automatiquement mis à jour selon votre sélection
+                        </p>
                       </div>
                       <div className="space-y-2 md:col-span-2">
                         <Label className="text-zinc-300">Notes</Label>
@@ -1642,31 +2073,84 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
                     </div>
                     {similarities.length > 0 && (
                       <div className="p-4 bg-orange-500/20 border border-orange-500/30 rounded-lg">
-                        <p className="text-orange-400 font-mono mb-2">⚠️ Similitudes détectées :</p>
-                        <ul className="space-y-1 text-sm">
+                        <p className="text-orange-400 font-mono mb-2 flex items-center">
+                          <AlertTriangle className="w-4 h-4 mr-2" />
+                          ⚠️ Similitudes détectées :
+                        </p>
+                        <ul className="space-y-2 text-sm">
                           {similarities.map((sim, idx) => (
-                            <li key={idx} className="text-orange-300 cursor-pointer hover:underline" onClick={() => handleSimilarClick(sim)}>
-                              {sim.name} ({sim.fields})
+                            <li
+                              key={idx}
+                              className="text-orange-300 cursor-pointer hover:underline p-2 rounded hover:bg-orange-500/10 transition-colors"
+                              onClick={() => handleSimilarClick(sim)}
+                            >
+                              <div className="font-medium">{sim.name}</div>
+                              <div className="text-xs text-orange-400">Champs similaires: {sim.fields}</div>
+                              {sim.cinNumber && (
+                                <div className="text-xs text-orange-300">CIN: {sim.cinNumber}</div>
+                              )}
                             </li>
                           ))}
                         </ul>
                       </div>
                     )}
-                    <div className="space-y-2 p-2 bg-zinc-900 rounded border border-zinc-700">
-                      <Label className="text-zinc-300 flex items-center space-x-2">
-                        <Checkbox
-                          checked={modalConfig.item.cinVerified || false}
-                          onCheckedChange={(checked) => handleCinVerifyAction('toggleVerified', modalConfig.item)}
-                          className="border-zinc-500 data-[state=checked]:bg-yellow-400 data-[state=checked]:text-zinc-900"
-                        />
-                        <span>Marquer CIN comme vérifié (utilisateur)</span>
-                      </Label>
+                    {/* Indicateur du statut CIN actuel */}
+                    {/* Indicateur du statut CIN actuel */}
+                    <div className="space-y-2 p-3 bg-zinc-900 rounded border border-zinc-700">
+                      <Label className="text-zinc-300 font-semibold">Statut CIN actuel</Label>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm font-medium ${(currentUserInModal || modalConfig.item)?.cinVerified ? 'text-green-400' : 'text-yellow-400'
+                          }`}>
+                          {(currentUserInModal || modalConfig.item)?.cinVerified ? '✅ CIN Vérifiée' : '⏳ En attente de vérification'}
+                        </span>
+                        {(currentUserInModal || modalConfig.item)?.cinVerifiedAt && (
+                          <span className="text-xs text-zinc-500">
+                            Le {new Date((currentUserInModal || modalConfig.item).cinVerifiedAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-2 pt-2 border-t border-zinc-700">
+                        <Label className="text-zinc-300 font-semibold">Nouveau statut après enregistrement</Label>
+                        <p className={`text-sm font-medium ${cinForm.status === 'verified' ? 'text-green-400' :
+                          cinForm.status === 'rejected' ? 'text-red-400' :
+                            cinForm.status === 'pending' ? 'text-yellow-400' : 'text-orange-400'
+                          }`}>
+                          {cinForm.status === 'verified' ? '✅ Vérifiée' :
+                            cinForm.status === 'rejected' ? '❌ Rejetée' :
+                              cinForm.status === 'duplicate' ? '🔄 Doublon' :
+                                cinForm.status === 'suspicious' ? '⚠️ Suspect' : '⏳ En attente'}
+                        </p>
+                        <p className="text-xs text-zinc-400 mt-1">
+                          {cinForm.status === 'verified'
+                            ? 'Le CIN sera marqué comme vérifié'
+                            : 'Le CIN sera marqué comme non vérifié'
+                          }
+                        </p>
+                      </div>
                     </div>
                     <DialogFooter className="border-t border-zinc-700 pt-4 flex-shrink-0">
-                      <Button type="button" variant="outline" onClick={closeModal} className="bg-zinc-700 hover:bg-zinc-700/80 text-white border-zinc-600 font-bold transition">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          console.log('Annulation, fermeture du modal');
+                          closeModal();
+                        }}
+                        className="bg-zinc-700 hover:bg-zinc-700/80 text-white border-zinc-600 font-bold transition"
+                      >
                         Annuler
                       </Button>
-                      <Button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-zinc-900 font-bold transition">Enregistrer</Button>
+                      <Button
+                        type="submit"
+                        className="bg-yellow-400 hover:bg-yellow-500 text-zinc-900 font-bold transition"
+                        onClick={(e) => {
+                          console.log('Clic sur Enregistrer');
+                          // La soumission du formulaire se fera via le onSubmit du form
+                        }}
+                      >
+                        Enregistrer
+                      </Button>
                     </DialogFooter>
                   </form>
                 </div>
@@ -1687,35 +2171,35 @@ export default function AdminDashboard({ onUserAction, onAlertAction }: AdminDas
               </div>
             ) : (
               <div className="py-4 px-6 text-zinc-300 font-mono text-sm">
-                 {modalConfig.message}
+                {modalConfig.message}
               </div>
             )}
           </div>
-          
+
           {(['userView'].includes(modalConfig.type)) && (
-             <DialogFooter className="flex-shrink-0 border-t border-zinc-700 p-4 sticky bottom-0 bg-zinc-800/95">
-                <Button type="button" onClick={closeModal} className="w-full sm:w-auto bg-zinc-700 hover:bg-zinc-700/80 text-white font-bold transition">
-                  Fermer
-                </Button>
-             </DialogFooter>
+            <DialogFooter className="flex-shrink-0 border-t border-zinc-700 p-4 sticky bottom-0 bg-zinc-800/95">
+              <Button type="button" onClick={closeModal} className="w-full sm:w-auto bg-zinc-700 hover:bg-zinc-700/80 text-white font-bold transition">
+                Fermer
+              </Button>
+            </DialogFooter>
           )}
-          
+
           {['duplicateAlert'].includes(modalConfig.type) && (
-             <DialogFooter className="flex-shrink-0 border-t border-zinc-700 pt-4 px-6">
-                <Button type="button" variant="outline" onClick={closeModal} className="bg-zinc-700 hover:bg-zinc-700/80 text-white border-zinc-600 font-bold transition">
-                  Fermer
-                </Button>
-             </DialogFooter>
+            <DialogFooter className="flex-shrink-0 border-t border-zinc-700 pt-4 px-6">
+              <Button type="button" variant="outline" onClick={closeModal} className="bg-zinc-700 hover:bg-zinc-700/80 text-white border-zinc-600 font-bold transition">
+                Fermer
+              </Button>
+            </DialogFooter>
           )}
-          
+
           {(modalConfig.type !== 'userView' && modalConfig.type !== 'userEdit' && modalConfig.type !== 'cinVerify' && modalConfig.type !== 'duplicateAlert') && (
             <DialogFooter className="flex-shrink-0 border-t border-zinc-700 pt-4 px-6">
               <Button type="button" variant="outline" onClick={closeModal} className="bg-zinc-700 hover:bg-zinc-700/80 text-white border-zinc-600 font-bold transition">
                 Annuler
               </Button>
-              <Button 
-                type="button" 
-                variant={modalConfig.type.includes('Delete') || modalConfig.type.includes('Suspend') ? "destructive" : "default"} 
+              <Button
+                type="button"
+                variant={modalConfig.type.includes('Delete') || modalConfig.type.includes('Suspend') ? "destructive" : "default"}
                 onClick={handleConfirmation}
                 className={modalConfig.type.includes('Delete') ? "bg-red-700 hover:bg-red-800 text-white font-bold" : "bg-yellow-400 hover:bg-yellow-500 text-zinc-900 font-bold"}
               >

@@ -95,12 +95,19 @@ export class PostgreSQLStorage implements IStorage {
   }
 
   private hashPassword(password: string): string {
-    // Méthode de hashage simple pour le développement
-    return createHash('sha256').update(password).digest('hex');
+    const trimmed = password.trim();  // ✅ Ajouté
+    return createHash('sha256').update(trimmed).digest('hex');
   }
 
   private verifyPassword(password: string, hashedPassword: string): boolean {
-    const hashedInput = this.hashPassword(password);
+    const trimmed = password.trim();  // ✅ Ajouté
+    const hashedInput = this.hashPassword(trimmed);
+    console.log('🔐 DEBUG Password Verification:', {
+      inputPassword: password,
+      hashedInput: hashedInput,
+      storedHash: hashedPassword,
+      match: hashedInput === hashedPassword
+    });
     return hashedInput === hashedPassword;
   }
 
@@ -227,6 +234,8 @@ export class PostgreSQLStorage implements IStorage {
     try {
       // Hashage du mot de passe si fourni
       if (updates.password) {
+        updates.password = updates.password.trim();  // Double sécurité
+        console.log('🔐 DEBUG: Hashing trimmed PW:', updates.password);
         updates.password = this.hashPassword(updates.password);
       }
 
@@ -514,33 +523,84 @@ export class PostgreSQLStorage implements IStorage {
 
   async deleteAlert(id: string, authorId: string): Promise<boolean> {
     try {
-      const alert = await this.getAlert(id);
-      if (!alert) return false;
+      console.log("🔴🔴🔴 DELETE ALERT - DÉBUT 🔴🔴🔴");
+      console.log("📦 ID Alerte:", id);
+      console.log("👤 ID Utilisateur:", authorId);
 
-      const author = await this.getUser(authorId);
-      if (!author || (alert.authorId !== authorId && !author.isAdmin)) {
+      // 1. Vérifier l'alerte
+      console.log("🔍 Étape 1: Vérification alerte...");
+      const alert = await this.getAlert(id);
+      console.log("📋 Résultat alerte:", alert ? "EXISTE" : "NULL");
+
+      if (!alert) {
+        console.log("❌ ÉCHEC: Alerte non trouvée");
         return false;
       }
+      console.log("✅ Alerte trouvée - Auteur:", alert.authorId);
 
-      // Supprimer les validations associées
-      await db.delete(alertValidations).where(eq(alertValidations.alertId, id));
+      // 2. Vérifier l'utilisateur
+      console.log("🔍 Étape 2: Vérification utilisateur...");
+      const user = await this.getUser(authorId);
+      console.log("📋 Résultat utilisateur:", user ? "EXISTE" : "NULL");
 
-      // Supprimer les vues associées
-      await db.delete(alertViews).where(eq(alertViews.alertId, id));
+      if (!user) {
+        console.log("❌ ÉCHEC: Utilisateur non trouvé");
+        return false;
+      }
+      console.log("✅ Utilisateur trouvé - Admin:", user.isAdmin);
 
-      // Supprimer les commentaires associés
-      await db.delete(alertComments).where(eq(alertComments.alertId, id));
+      // 3. Vérifier les permissions
+      console.log("🔍 Étape 3: Vérification permissions...");
+      const isOwner = alert.authorId === authorId;
+      const isAdmin = user.isAdmin === true;
+      const canDelete = isOwner || isAdmin;
 
-      // Supprimer l'alerte
+      console.log("📊 Permissions:", {
+        alertAuthor: alert.authorId,
+        currentUser: authorId,
+        isOwner,
+        isAdmin,
+        canDelete
+      });
+
+      if (!canDelete) {
+        console.log("❌ ÉCHEC: Pas autorisé");
+        return false;
+      }
+      console.log("✅ Permissions OK");
+
+      // 4. Supprimer directement l'alerte (sans transaction)
+      console.log("🔍 Étape 4: Suppression directe...");
       const result = await db.delete(alerts).where(eq(alerts.id, id)).returning({ id: alerts.id });
+      console.log("📋 Résultat suppression:", result);
 
-      if (result.length > 0 && alert.authorId) {
-        await this.decrementUserAlertsCount(alert.authorId);
+      if (result.length === 0) {
+        console.log("❌ ÉCHEC: Aucune ligne supprimée");
+        return false;
+      }
+      console.log("✅ Suppression DB réussie");
+
+      // 5. Mettre à jour le compteur
+      console.log("🔍 Étape 5: Mise à jour compteur...");
+      if (alert.authorId) {
+        const updateResult = await db.update(users)
+          .set({
+            alertsCount: sql`${users.alertsCount} - 1`,
+            updatedAt: new Date()
+          })
+          .where(eq(users.id, alert.authorId));
+        console.log("✅ Compteur mis à jour");
       }
 
-      return result.length > 0;
+      console.log("🟢🟢🟢 DELETE ALERT - SUCCÈS COMPLET 🟢🟢🟢");
+      return true;
+
     } catch (error) {
-      console.error('Error deleting alert:', error);
+      console.error("🔴🔴🔴 DELETE ALERT - ERREUR CRITIQUE:", error);
+      if (error instanceof Error) {
+        console.error("🔴 Message:", error.message);
+        console.error("🔴 Stack:", error.stack);
+      }
       return false;
     }
   }
@@ -964,13 +1024,13 @@ export class PostgreSQLStorage implements IStorage {
       const [validationsCountResult] = await db.select({ count: count() }).from(alertValidations);
       const validationsCount = Number(validationsCountResult.count);
 
-      return { 
-        usersCount, 
-        alertsCount, 
-        confirmedAlertsCount, 
-        pendingAlertsCount, 
-        resolvedAlertsCount, 
-        validationsCount 
+      return {
+        usersCount,
+        alertsCount,
+        confirmedAlertsCount,
+        pendingAlertsCount,
+        resolvedAlertsCount,
+        validationsCount
       };
     } catch (error) {
       console.error('Error getting system stats:', error);
@@ -988,11 +1048,7 @@ export class PostgreSQLStorage implements IStorage {
   }
 
   async updateUserAdmin(id: string, updates: Partial<User>): Promise<User | undefined> {
-    // Pour l'admin, permettre tous les updates (y compris password sans hash, mais on hash quand même)
-    if (updates.password) {
-      updates.password = this.hashPassword(updates.password as string);
-    }
-
+    // On ne hache pas ici, car updateUser le fera
     return await this.updateUser(id, updates);
   }
 
@@ -1654,13 +1710,13 @@ class MemStorage implements IStorage {
     const resolvedAlertsCount = alertsArray.filter(alert => alert.status === 'resolved').length;
     const validationsCount = this.alertValidations.size;
 
-    return { 
-      usersCount, 
-      alertsCount, 
-      confirmedAlertsCount, 
-      pendingAlertsCount, 
-      resolvedAlertsCount, 
-      validationsCount 
+    return {
+      usersCount,
+      alertsCount,
+      confirmedAlertsCount,
+      pendingAlertsCount,
+      resolvedAlertsCount,
+      validationsCount
     };
   }
 

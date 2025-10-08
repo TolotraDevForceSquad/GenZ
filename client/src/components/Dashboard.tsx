@@ -26,8 +26,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useLocation } from 'wouter';
 import type { Alert } from '@shared/schema';
+import { useSmartPolling } from '@/hooks/useSmartPolling';
 
 const API_URL = window.location.origin;
+
+
 
 type Location = {
   nom: string;
@@ -91,6 +94,7 @@ const formatTimeAgo = (timestamp: string | Date): string => {
     return "Date invalide";
   }
 };
+
 
 // --- COMPONENTS ---
 
@@ -267,7 +271,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ alertId, currentUserId,
         <form onSubmit={handleSubmit} className="p-4 border-t border-gray-800 flex items-center flex-shrink-0">
           <img
             src={localStorage.getItem('userAvatar') || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
-            alt="Avatar"
+            alt=" "
             className="w-8 h-8 rounded-full object-cover mr-3 border border-gray-700"
           />
           <input
@@ -371,6 +375,7 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
 
   const authorName = author.name?.trim() || "Utilisateur inconnu";
   const authorAvatar = author.avatar || "";
+  const authorIsActive = author.isActive;
   const authorHasCIN = author.hasCIN || false;
   const authorRegion = author.region || "";
 
@@ -458,6 +463,7 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
 
   return (
     // CARD STYLE: Dark background, rounded, subtle border, full width on mobile
+
     <div className="bg-[#201d1d] border border-gray-800 rounded-xl shadow-2xl mb-6 transition-all duration-300 hover:shadow-yellow-900/20">
 
       {/* En-tête de la publication */}
@@ -465,7 +471,7 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
         <div className="flex items-center">
           <img
             src={authorAvatar || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
-            alt={authorName}
+            alt=" "
             className="w-10 h-10 rounded-full object-cover mr-3 border-2 border-gray-700 flex-shrink-0"
           />
           <div>
@@ -666,6 +672,7 @@ const FacebookStyleAlert: React.FC<FacebookStyleAlertProps> = ({ alert, onValida
         onClose={() => setShowCommentSection(false)}
       />
     </div>
+
   );
 };
 
@@ -987,6 +994,40 @@ const LimitModal: React.FC<{ isOpen: boolean; onClose: () => void; userAlertsCou
   );
 };
 
+const IsActiveWarningModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300" onClick={onClose}>
+      <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-300 my-8" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center p-4 border-b border-gray-800 sticky top-0 bg-[#201d1d] z-10">
+          <h2 className="text-xl font-bold text-white">Compte Inactif</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 transition">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="p-6">
+          <div className="text-center mb-6">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <p className="text-gray-300">
+              Votre compte est actuellement inactif. Certaines fonctionnalités, comme la création d'alertes, sont désactivées.
+              Veuillez contacter le support pour réactiver votre compte.
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition font-semibold"
+            >
+              Compris
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const ValidationModal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; placeholder: string; buttonText: string; commentType: 'green' | 'red'; onSubmit: (comment: string) => void }> = ({ isOpen, onClose, title, placeholder, buttonText, commentType, onSubmit }) => {
   if (!isOpen) return null;
 
@@ -1018,6 +1059,7 @@ const ValidationModal: React.FC<{ isOpen: boolean; onClose: () => void; title: s
 // --- DASHBOARD MAIN COMPONENT ---
 
 export default function Dashboard() {
+
   const [showSOSForm, setShowSOSForm] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [rejectingAlertId, setRejectingAlertId] = useState<string | null>(null);
@@ -1029,6 +1071,13 @@ export default function Dashboard() {
   const [loadingMore, setLoadingMore] = useState(false);
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const [showInactiveWarning, setShowInactiveWarning] = useState(false);
+
+  // Actualiser l'utilisateur au montage du composant
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+    queryClient.invalidateQueries({ queryKey: ['alerts'] });
+  }, [queryClient]);
 
   const { data: currentUserRaw, isError: authError, isLoading: userLoading } = useQuery({
     queryKey: ['currentUser'],
@@ -1039,7 +1088,8 @@ export default function Dashboard() {
       }
       const response = await fetch('/api/auth/me', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache' // Empêcher la mise en cache
         }
       });
       if (!response.ok) {
@@ -1049,6 +1099,8 @@ export default function Dashboard() {
       return response.json();
     },
     retry: false,
+    staleTime: 0, // Désactiver le cache
+    refetchOnWindowFocus: true, // Recharger quand la fenêtre reprend le focus
   });
 
   const currentUser = currentUserRaw ? {
@@ -1059,6 +1111,7 @@ export default function Dashboard() {
     isAdmin: currentUserRaw.isAdmin || false,
     hasCIN: currentUserRaw.hasCIN || false,
     region: currentUserRaw.region || '',
+    isActive: currentUserRaw.isActive ?? true
   } : null;
 
   const currentUserId = currentUser?.id;
@@ -1109,7 +1162,9 @@ export default function Dashboard() {
           avatar: a.author?.avatar,
           hasCIN: a.author?.hasCIN || false,
           region: a.author?.region || '',
+          isActive: a.author?.isActive ?? true
         },
+
       })));
 
       if (alertsData.length < 10) {
@@ -1210,6 +1265,7 @@ export default function Dashboard() {
             avatar: a.author?.avatar,
             hasCIN: a.author?.hasCIN || false,
             region: a.author?.region || '',
+            isActive: a.author?.isActive ?? true
           },
         }))]);
         setPage(nextPage);
@@ -1226,6 +1282,14 @@ export default function Dashboard() {
       setLocation('/login');
     }
   }, [authError, setLocation]);
+
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     queryClient.invalidateQueries({ queryKey: ['alerts'] });
+  //   }, 3000); // Rafraîchir toutes les 10 secondes
+
+  //   return () => clearInterval(interval);
+  // }, [queryClient]);
 
   if (userLoading || alertsLoading) {
     return <div className="min-h-screen bg-[#161313] flex items-center justify-center text-white">
@@ -1245,8 +1309,23 @@ export default function Dashboard() {
   const filteredAlerts = alerts.filter((alert: any) => {
     const statusMatch = selectedStatus === 'all' || alert.status === selectedStatus;
     const provinceMatch = !selectedRegion ||
-      (alert.region && alert.region.startsWith(selectedRegion + " /"));
-    return statusMatch && provinceMatch;
+      (alert.region && (
+        alert.region.startsWith(selectedRegion + " /") ||
+        alert.region === selectedRegion ||
+        alert.region.includes(selectedRegion)
+      ));
+
+    // Version très explicite
+    const authorIsActive = alert.author &&
+      alert.author.isActive !== undefined &&
+      alert.author.isActive !== false;
+
+    console.log('Filtering - Alert:', alert.id,
+      'Status match:', statusMatch,
+      'Province match:', provinceMatch,
+      'Author active:', authorIsActive);
+
+    return statusMatch && provinceMatch && authorIsActive;
   });
 
   const handleSuccess = async () => {
@@ -1323,10 +1402,25 @@ export default function Dashboard() {
   };
 
   const handleOpenSOSForm = () => {
+    console.log('Opening SOS Form - User:', {
+      isActive: currentUser.isActive,
+      hasCIN: currentUser.hasCIN,
+      userAlertsCount
+    });
+
+    if (currentUser.isActive === false) {
+      console.log('User is inactive, showing warning');
+      setShowInactiveWarning(true);
+      return;
+    }
+
     if (!currentUser.hasCIN && userAlertsCount >= 1) {
+      console.log('User reached limit, showing limit modal');
       setShowLimitModal(true);
       return;
     }
+
+    console.log('Opening SOS form');
     setShowSOSForm(true);
   };
 
@@ -1437,7 +1531,7 @@ export default function Dashboard() {
         <div className="group relative">
           <img
             src={currentUser.avatar || currentUser.profileImageUrl || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
-            alt="Profil"
+            alt=" "
             className="w-12 h-12 rounded-full object-cover border-3 border-yellow-500 ring-2 ring-yellow-500 cursor-pointer shadow-xl hover:shadow-yellow-500/50 transition duration-300"
           />
           {/* Tooltip Profil */}
@@ -1470,6 +1564,11 @@ export default function Dashboard() {
         isOpen={showLimitModal}
         onClose={() => setShowLimitModal(false)}
         userAlertsCount={userAlertsCount}
+      />
+
+      <IsActiveWarningModal
+        isOpen={showInactiveWarning}
+        onClose={() => setShowInactiveWarning(false)}
       />
 
       <ValidationModal

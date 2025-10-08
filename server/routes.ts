@@ -80,6 +80,7 @@ function buildUserResponse(user: any) {
     region: user.region,
     latitude: user.latitude,
     longitude: user.longitude,
+    updatedAt: user.updatedAt,
     joinedAt: user.joinedAt,
     alertsCount: user.alertsCount,
     validationsCount: user.validationsCount
@@ -97,7 +98,8 @@ function buildUserFullResponse(user: any) {
     cinVerifiedAt: user.cinVerifiedAt,
     cinVerifiedBy: user.cinVerifiedBy,
     createdAt: user.createdAt,
-    updatedAt: user.updatedAt
+    updatedAt: user.updatedAt,
+    isActive: user.isActive
   };
 }
 
@@ -190,7 +192,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 id: author.id,
                 name: author.name,
                 avatar: author.avatar || author.profileImageUrl,
-                hasCIN: author.hasCIN
+                hasCIN: author.hasCIN,
+                isActive: author.isActive
               } : {
                 id: "unknown",
                 name: "Utilisateur inconnu",
@@ -424,19 +427,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { authorId } = req.body;
 
+      console.log("🗑️ API DELETE Alert - Requête reçue:", {
+        alertId: id,
+        authorId: authorId,
+        body: req.body
+      });
+
       if (!authorId) {
+        console.log("❌ API DELETE - Author ID manquant");
         return res.status(400).json({ error: "Author ID is required" });
       }
 
       const success = await storage.deleteAlert(id, authorId);
 
       if (!success) {
+        console.log("❌ API DELETE - storage.deleteAlert a retourné false");
         return res.status(404).json({ error: "Alert not found or unauthorized" });
       }
 
+      console.log("✅ API DELETE - Suppression réussie");
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting alert:", error);
+      console.error("❌ API DELETE - Erreur:", error);
       res.status(500).json({ error: "Failed to delete alert" });
     }
   });
@@ -462,7 +474,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 id: author.id,
                 name: author.name,
                 avatar: author.avatar || author.profileImageUrl,
-                hasCIN: author.hasCIN
+                hasCIN: author.hasCIN,
+                isActive: author.isActive
               } : {
                 id: "unknown",
                 name: "Utilisateur inconnu",
@@ -983,6 +996,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updates = req.body;
 
+      console.log('🔄 DEBUG User Update Request:', {
+        userId: id,
+        updates: { ...updates, password: updates.password ? '***' : 'not provided' }
+      });
+
       // Vérification d'auth - seul l'utilisateur peut modifier son profil
       const authHeader = req.headers.authorization;
       let userIdFromAuth: string | null = null;
@@ -999,6 +1017,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
+      console.log('🔄 DEBUG Old User Password Hash:', oldUser.password);
+
       const oldFirstName = oldUser.firstName;
 
       const user = await storage.updateUser(id, updates);
@@ -1006,6 +1026,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
+
+      console.log('🔄 DEBUG Updated User Password Hash:', user.password);
 
       if (updates.firstName && updates.firstName !== oldFirstName) {
         await renameCINFiles(id, oldFirstName, updates.firstName as string);
@@ -1136,7 +1158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Ajout du middleware static pour avatars
   app.use('/uploads/avatars', express.static('uploads/avatars'));
-  
+
   // CIN upload route (re-upload pour modification)
   app.post("/api/users/:id/cin-upload", cinUpload.fields([
     { name: 'front', maxCount: 1 },

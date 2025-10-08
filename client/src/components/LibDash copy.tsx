@@ -18,9 +18,8 @@ import {
   Play,
   Eye,
   Trash2,
-  AlertTriangle, // LOGIQUE - USERS: Ajout pour l'icône d'alerte
 } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useSmartPolling } from '@/hooks/useSmartPolling';
 
 // --- (Interfaces et Fonctions d'API restent inchangées) ---
@@ -90,81 +89,6 @@ const getAuthHeaders = (isJson = true) => {
   return headers;
 };
 
-// --------------------------------------------------------------------------------
-// LOGIQUE - USERS: Modal de Limite d'Alertes
-// --------------------------------------------------------------------------------
-
-const LimitModal: React.FC<{ isOpen: boolean; onClose: () => void; userPostsCount: number }> = ({ isOpen, onClose, userPostsCount }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300" onClick={onClose}>
-      <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-300 my-8" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-between items-center p-4 border-b border-gray-800 sticky top-0 bg-[#201d1d] z-10">
-          <h2 className="text-xl font-bold text-white">Limite atteinte</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 transition">
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <p className="text-gray-300">
-              Vous avez créé <strong className="text-yellow-400">{userPostsCount}</strong> publication(s). En tant qu'utilisateur non vérifié,
-              vous êtes limité à une publication. Veuillez vérifier votre compte pour créer plus de publications.
-            </p>
-          </div>
-          <div className="flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition font-semibold"
-            >
-              Compris
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// --------------------------------------------------------------------------------
-// LOGIQUE - USERS: Modal d'Utilisateur Inactif
-// --------------------------------------------------------------------------------
-
-const IsActiveWarningModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-[#161313]/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300" onClick={onClose}>
-      <div className="bg-[#201d1d] border border-gray-800 rounded-xl w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-300 my-8" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-between items-center p-4 border-b border-gray-800 sticky top-0 bg-[#201d1d] z-10">
-          <h2 className="text-xl font-bold text-white">Compte Inactif</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 transition">
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <p className="text-gray-300">
-              Votre compte est actuellement inactif. Certaines fonctionnalités, comme la création de publications, sont désactivées.
-              Veuillez contacter le support pour réactiver votre compte.
-            </p>
-          </div>
-          <div className="flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition font-semibold"
-            >
-              Compris
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // --------------------------------------------------------------------------------
 // Composant VideoContent
@@ -251,6 +175,7 @@ const VideoModal: React.FC<{ isOpen: boolean; onClose: () => void; url: string; 
     </div>
   );
 };
+
 
 // --------------------------------------------------------------------------------
 // Composant CommentsModal (Design ajusté pour Dark/Responsive)
@@ -351,6 +276,7 @@ const CommentsModal: React.FC<{ isOpen: boolean; onClose: () => void; comments: 
   );
 };
 
+
 // --------------------------------------------------------------------------------
 // Composant LibererCard (Design ajusté pour Dark/Responsive)
 // --------------------------------------------------------------------------------
@@ -417,6 +343,7 @@ const LibererCard: React.FC<{ post: LibererPost; currentUser: AppUser; onUpdateS
 
     if (status === 'liberer' && !confirm('Confirmez-vous que cette personne est maintenant Libérée ?')) return;
     if (status === 'en-detention' && !confirm('Confirmez-vous que cette personne est toujours En détention ?')) return;
+
 
     try {
       const response = await fetch(`${API_BASE}/liberers/${post.id}/status`, {
@@ -499,6 +426,7 @@ const LibererCard: React.FC<{ post: LibererPost; currentUser: AppUser; onUpdateS
 
       {/* Description rapide */}
       <p className="px-4 pt-4 text-sm text-gray-300 line-clamp-3">{post.personDescription}</p>
+
 
       {/* Détails de l'arrestation */}
       <div className="p-4 text-sm text-gray-400">
@@ -820,16 +748,14 @@ const NewPostModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: 
   );
 };
 
+
 export const LibDash: React.FC = () => {
   useSmartPolling();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [posts, setPosts] = useState<LibererPost[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'en-detention' | 'liberer'>('all');
-  const queryClient = useQueryClient();
+
   
-  // LOGIQUE - USERS: États pour les modals de limite et d'inactivité
-  const [showLimitModal, setShowLimitModal] = useState(false);
-  const [showInactiveWarning, setShowInactiveWarning] = useState(false);
 
   const { data: currentUserRaw, isError: authError, isLoading: userLoading } = useQuery({
     queryKey: ['currentUser'],
@@ -859,48 +785,9 @@ export const LibDash: React.FC = () => {
     profileImageUrl: currentUserRaw.profileImageUrl,
     isAdmin: currentUserRaw.isAdmin || false,
     hasCIN: currentUserRaw.hasCIN || false,
-    isActive: currentUserRaw.isActive ?? true // LOGIQUE - USERS: Assure que isActive a une valeur par défaut
   } : null;
 
   const currentUserId = currentUser?.id;
-
-  // LOGIQUE - USERS: Requête pour compter les posts de l'utilisateur
-  const { data: userPostsCount = 0 } = useQuery({
-    queryKey: ['user-posts-count', currentUserId],
-    queryFn: async () => {
-      if (!currentUserId) return 0;
-      
-      try {
-        const token = localStorage.getItem('authToken');
-        const response = await fetch(`${API_BASE}/liberers`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) {
-          console.error('Failed to fetch posts for counting');
-          return 0;
-        }
-        
-        const allPosts = await response.json();
-        
-        // Filtrer les posts qui appartiennent à l'utilisateur actuel
-        const userPosts = allPosts.filter((post: any) => {
-          return post.author && post.author.id === currentUserId;
-        });
-        
-        console.log(`User ${currentUserId} has ${userPosts.length} posts`);
-        return userPosts.length;
-        
-      } catch (error) {
-        console.error('Error counting user posts:', error);
-        return 0;
-      }
-    },
-    enabled: !!currentUserId, // Ne s'exécute que si l'utilisateur est connecté
-    staleTime: 0, // Considérer les données comme fraîches pendant 1 minute
-  });
 
   const { data: postsData, isLoading: postsLoading } = useQuery({
     queryKey: ['liberers'],
@@ -940,35 +827,6 @@ export const LibDash: React.FC = () => {
 
   const filteredPosts = posts.filter(post => selectedStatus === 'all' || post.status === selectedStatus);
 
-  // LOGIQUE - USERS: Méthode pour ouvrir le formulaire avec vérifications
-  const handleOpenNewPostForm = () => {
-    console.log('Opening New Post Form - User:', {
-      isActive: currentUser?.isActive,
-      hasCIN: currentUser?.hasCIN,
-      userPostsCount
-    });
-
-    if (!currentUser) return;
-
-    // 1. Vérification d'abord si l'utilisateur est inactif
-    if (currentUser.isActive === false) {
-      console.log('User is inactive, showing warning');
-      setShowInactiveWarning(true);
-      return;
-    }
-
-    // 2. Ensuite vérification de la limite de posts
-    if (!currentUser.hasCIN && userPostsCount >= 1) {
-      console.log('User reached limit, showing limit modal');
-      setShowLimitModal(true);
-      return;
-    }
-
-    // 3. Si toutes les conditions sont remplies, ouvre le formulaire
-    console.log('Opening new post form');
-    setIsModalOpen(true);
-  };
-
   const handleSuccess = async () => {
     const token = localStorage.getItem('authToken');
     const response = await fetch(`${API_BASE}/liberers`, {
@@ -990,7 +848,6 @@ export const LibDash: React.FC = () => {
           isActive: p.author.isActive !== false,
         },
       })));
-      queryClient.invalidateQueries({ queryKey: ['user-posts-count'] });
     }
   };
 
@@ -1024,7 +881,7 @@ export const LibDash: React.FC = () => {
       <div className='flex flex-col items-center px-4 sm:px-6 text-center'>
         <h1 className="text-3xl font-extrabold text-yellow-400 tracking-wider mt-6">SOS Libération</h1>
         <p className="text-zinc-400 font-mono text-sm">
-          Cette section vous permet de signaler rapidement une situation urgente en cas d'arrestation ou de détention. <br />Notre équipe reçoit immédiatement l'alerte et vous accompagne dans les démarches nécessaires pour obtenir une libération dans les plus brefs délais..
+          Cette section vous permet de signaler rapidement une situation urgente en cas d’arrestation ou de détention. <br />Notre équipe reçoit immédiatement l’alerte et vous accompagne dans les démarches nécessaires pour obtenir une libération dans les plus brefs délais..
         </p>
       </div>
 
@@ -1070,23 +927,10 @@ export const LibDash: React.FC = () => {
             Connecté: {currentUser.name}
           </span>
         </div>
-        {/* LOGIQUE - USERS: Modification du bouton pour utiliser la nouvelle méthode */}
-        <button onClick={handleOpenNewPostForm} className="bg-yellow-500 p-4 rounded-full shadow-2xl hover:bg-yellow-600 transition duration-300">
+        <button onClick={() => setIsModalOpen(true)} className="bg-yellow-500 p-4 rounded-full shadow-2xl hover:bg-yellow-600 transition duration-300">
           <Plus className="w-6 h-6 text-gray-900 font-bold" />
         </button>
       </div>
-
-      {/* LOGIQUE - USERS: Ajout des modals de limite et d'inactivité */}
-      <LimitModal
-        isOpen={showLimitModal}
-        onClose={() => setShowLimitModal(false)}
-        userPostsCount={userPostsCount}
-      />
-
-      <IsActiveWarningModal
-        isOpen={showInactiveWarning}
-        onClose={() => setShowInactiveWarning(false)}
-      />
 
       <NewPostModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={handleSuccess} currentUser={currentUser} />
     </div>

@@ -17,7 +17,7 @@ type Location = {
 const searchLocations = (query: string, locations: Location[]): Location[] => {
   if (!query.trim()) return [];
   const lowerQuery = query.toLowerCase();
-  return locations.filter(location => 
+  return locations.filter(location =>
     location.localisation.toLowerCase().includes(lowerQuery)
   ).slice(0, 10);
 };
@@ -65,26 +65,26 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log(`${mode} form submitted:`, formData);
-    
+
     if (!onSubmit) {
       console.error('onSubmit function is undefined');
       return;
     }
-    
+
     // Validation des champs requis
     if (!formData.phone || !formData.password) {
       console.error('Phone or password is missing');
       return;
     }
-    
+
     // Préparer les données selon le mode
     let submitData;
-    
+
     if (mode === 'login') {
       // Pour le login: seulement phone et password
-      submitData = { 
-        phone: formData.phone, 
-        password: formData.password 
+      submitData = {
+        phone: formData.phone,
+        password: formData.password
       };
     } else {
       // Pour l'inscription: tous les champs avec valeurs par défaut si besoin
@@ -101,7 +101,7 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
         region: formData.region || ''
       };
     }
-    
+
     onSubmit(submitData);
   };
 
@@ -146,21 +146,21 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
             {mode === 'login' ? 'Connexion' : 'Créer un compte'}
           </CardTitle>
           <CardDescription className="text-gray-300">
-            {mode === 'login' 
-              ? 'Connectez-vous à Gasy Hub' 
+            {mode === 'login'
+              ? 'Connectez-vous à Gasy Hub'
               : 'Rejoignez la communauté Gasy Hub'}
           </CardDescription>
         </CardHeader>
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            
+
             {/* CHAMPS D'INSCRIPTION UNIQUEMENT (Horizontal sur Web) */}
             {mode === 'register' && (
               <>
                 {/* Ligne 1: Nom complet & Email */}
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  
+
                   {/* Nom complet (optionnel) */}
                   <div className="space-y-2">
                     <Label htmlFor="name" className="text-yellow-400">Nom complet</Label>
@@ -264,7 +264,7 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
             )}
 
             {/* CHAMPS COMMUNS: Téléphone et Mot de passe (Stacked pour la clarté) */}
-            
+
             {/* Téléphone (requis) */}
             <div className="space-y-2">
               <Label htmlFor="phone" className="text-yellow-400">
@@ -290,6 +290,7 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
               <Label htmlFor="password" className="text-yellow-400">
                 Mot de passe <span className="text-red-500">*</span>
               </Label>
+
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                 <Input
@@ -318,9 +319,19 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-gray-500">
-                Minimum 4 caractères
-              </p>
+
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-gray-500">Minimum 4 caractères</p>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="p-0 h-auto text-yellow-400 hover:text-yellow-300 hover:bg-transparent"
+                  onClick={() => (window.location.href = '/forgot-password')}
+                  data-testid="button-forgot-password"
+                >
+                  Mot de passe oublié ?
+                </Button>
+              </div>
             </div>
 
             {/* Affichage d'erreur (Rouge pour l'urgence) */}
@@ -331,9 +342,9 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
             )}
 
             {/* Bouton de soumission (Bouton principal Jaune Doré) */}
-            <Button 
-              type="submit" 
-              className={`w-full h-12 text-base font-bold bg-yellow-400 hover:bg-yellow-500 text-black shadow-lg ${loading ? 'opacity-80' : ''}`} 
+            <Button
+              type="submit"
+              className={`w-full h-12 text-base font-bold bg-yellow-400 hover:bg-yellow-500 text-black shadow-lg ${loading ? 'opacity-80' : ''}`}
               disabled={loading}
               data-testid="button-submit"
             >
@@ -346,8 +357,8 @@ export default function AuthForm({ mode, onSubmit, onToggleMode, loading, error 
             <span className="text-sm text-gray-400">
               {mode === 'login' ? "Pas encore de compte ?" : "Déjà un compte ?"}
             </span>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               className="ml-2 h-auto p-0 text-sm text-yellow-400 hover:text-yellow-300 hover:bg-transparent"
               onClick={onToggleMode}
               data-testid="button-toggle-mode"

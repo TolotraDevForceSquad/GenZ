@@ -24,7 +24,7 @@ import AdminDashboard from "@/components/AdminDashboard";
 import EmergencyContacts from "@/components/EmergencyContacts";
 import LibDash from "./components/LibDash";
 import React from "react"; // Ajouté pour React.CSSProperties
-import ForgotPassword from "./components/ForgotPassword";
+
 
 function AuthenticatedApp() {
   const { user: authUser, login, logout, isAuthenticated } = useAuth(); // Renommé pour clarté
@@ -158,7 +158,6 @@ function AuthenticatedApp() {
         <Route path="/" component={() => <LandingPage onLogin={navigateToLogin} />} />
         <Route path="/login" component={() => <AuthPage mode="login" onLogin={handleLogin} />} />
         <Route path="/register" component={() => <AuthPage mode="register" onLogin={handleLogin} />} />
-        <Route path="/forgot-password" component={ForgotPassword} />
         <Route component={() => <LandingPage onLogin={navigateToLogin} />} />
       </Switch>
     );
@@ -240,8 +239,6 @@ function AuthenticatedApp() {
           <main className="flex-1 overflow-auto bg-zinc-900">
             <Switch>
               {/* Page d'accueil = on choisit quoi afficher */}
-
-              
               <Route path="/">
                 {currentUser?.isAdmin ? <AdminDashboard /> : <Dashboard />} {/* ✅ MODIFIÉ: currentUser */}
               </Route>

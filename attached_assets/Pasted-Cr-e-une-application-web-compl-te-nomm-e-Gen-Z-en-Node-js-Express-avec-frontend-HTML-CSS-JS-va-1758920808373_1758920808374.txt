@@ -82,7 +82,7 @@ Crée une application web complète nommée **Gen Z** en Node.js + Express avec 
 - `/register` → Inscription
 - `/login` → Connexion
 - `/dashboard` → SOS + liste alertes
-- `/profile` → Upload CIN
+- `o` → Upload CIN
 - `/map` → Carte d’insécurité
 - `/admin` → Console d’administration
 

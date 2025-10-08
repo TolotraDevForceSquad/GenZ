@@ -144,9 +144,9 @@ export default function AppSidebar({ user, onLogout }: AppSidebarProps) {
         {user && (
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <Avatar className="w-10 h-10 border border-yellow-400 p-0.5">
+              <Avatar className="w-10 h-10 border border-yellow-400">
                 <AvatarImage src={user.avatar || "https://cdn-icons-png.flaticon.com/512/847/847969.png"} alt={user.name} />
-                <AvatarFallback className="bg-zinc-700 text-yellow-400 font-bold">{user.name.charAt(0)}</AvatarFallback>
+                {/* <AvatarFallback className="bg-zinc-700 text-yellow-400 font-bold">{user.name.charAt(0)}</AvatarFallback> */}
               </Avatar>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

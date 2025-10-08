@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { useQueryClient } from '@tanstack/react-query'; // ✅ AJOUTÉ: Import pour invalider les queries
-import { Upload, Shield, CheckCircle, User, Phone, Mail, Camera, MapPin, Trash2, AlertCircle, Edit, ChevronDown } from "lucide-react";
+import { Upload, Shield, CheckCircle, User, Phone, Mail, Camera, MapPin, Trash2, AlertCircle, Edit, ChevronDown, Lock } from "lucide-react";
 
 type Location = {
   nom: string;
@@ -105,6 +105,9 @@ export default function ProfilePage({ token }: ProfilePageProps) {
         latitude: '',
         longitude: '',
         region: '',
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
     });
     const [avatarVersion, setAvatarVersion] = useState(0);
     const [cinFrontVersion, setCinFrontVersion] = useState(0);
@@ -143,6 +146,9 @@ export default function ProfilePage({ token }: ProfilePageProps) {
                     latitude: data.latitude?.toString() || '',
                     longitude: data.longitude?.toString() || '',
                     region: data.region || '',
+                    currentPassword: '',
+                    newPassword: '',
+                    confirmPassword: '',
                 });
                 setSelectedRegion(data.region || '');
             } else {
@@ -186,7 +192,13 @@ export default function ProfilePage({ token }: ProfilePageProps) {
         e.preventDefault();
         if (!user || !token) return;
 
-        const body = {
+        // Validation pour le mot de passe
+        if (formData.newPassword && (formData.newPassword.length < 4 || formData.newPassword !== formData.confirmPassword)) {
+            setError('Le nouveau mot de passe doit faire au moins 4 caractères et correspondre à la confirmation.');
+            return;
+        }
+
+        const body: any = {
             firstName: formData.firstName || undefined,
             lastName: formData.lastName || undefined,
             email: formData.email || undefined,
@@ -196,6 +208,12 @@ export default function ProfilePage({ token }: ProfilePageProps) {
             longitude: formData.longitude ? parseFloat(formData.longitude) : undefined,
             region: formData.region || undefined,
         };
+
+        // Ajouter les champs mot de passe si fournis
+        if (formData.newPassword && formData.currentPassword) {
+            body.currentPassword = formData.currentPassword;
+            body.newPassword = formData.newPassword;
+        }
 
         try {
             const res = await fetch(`/api/users/${user.id}`, {
@@ -212,6 +230,8 @@ export default function ProfilePage({ token }: ProfilePageProps) {
                 // ✅ AJOUTÉ: Invalider la query currentUser pour propager les changements partout
                 queryClient.invalidateQueries({ queryKey: ['currentUser'] });
                 setIsEditing(false);
+                // Réinitialiser les champs mot de passe
+                setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
             } else {
                 const errData = await res.json().catch(() => ({}));
                 setError(errData.error || 'Échec de la mise à jour du profil.');
@@ -659,6 +679,63 @@ export default function ProfilePage({ token }: ProfilePageProps) {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Section Changement de mot de passe */}
+                                {isEditing && (
+                                    <div className="space-y-4 p-4 bg-zinc-900/50 rounded-lg border border-zinc-700">
+                                        <div className="text-center">
+                                            <h3 className="text-lg font-semibold text-yellow-400 flex items-center justify-center gap-2">
+                                                <Lock className="w-4 h-4" />
+                                                Changer le mot de passe
+                                            </h3>
+                                            <p className="text-xs text-gray-500 mt-1">Nouveau mot de passe : minimum 4 caractères</p>
+                                        </div>
+                                        <div className="grid sm:grid-cols-3 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="currentPassword" className="text-gray-300">Actuel</Label>
+                                                <div className="relative">
+                                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                                                    <Input
+                                                        id="currentPassword"
+                                                        type="password"
+                                                        value={formData.currentPassword}
+                                                        onChange={(e) => setFormData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                                                        className="pl-10 bg-zinc-700/50 border-zinc-700 text-white placeholder-gray-500 focus:bg-zinc-700 focus:ring-yellow-500"
+                                                        placeholder="Mot de passe actuel"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="newPassword" className="text-gray-300">Nouveau</Label>
+                                                <div className="relative">
+                                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                                                    <Input
+                                                        id="newPassword"
+                                                        type="password"
+                                                        value={formData.newPassword}
+                                                        onChange={(e) => setFormData(prev => ({ ...prev, newPassword: e.target.value }))}
+                                                        className="pl-10 bg-zinc-700/50 border-zinc-700 text-white placeholder-gray-500 focus:bg-zinc-700 focus:ring-yellow-500"
+                                                        placeholder="Nouveau mot de passe"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="confirmPassword" className="text-gray-300">Confirmer</Label>
+                                                <div className="relative">
+                                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                                                    <Input
+                                                        id="confirmPassword"
+                                                        type="password"
+                                                        value={formData.confirmPassword}
+                                                        onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                                                        className="pl-10 bg-zinc-700/50 border-zinc-700 text-white placeholder-gray-500 focus:bg-zinc-700 focus:ring-yellow-500"
+                                                        placeholder="Confirmer le nouveau"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Sélecteur de Région */}
                                 <div className="space-y-2 relative">
